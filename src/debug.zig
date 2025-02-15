@@ -30,6 +30,9 @@ fn disassembleInstruction(chunk: Chunk, offset: usize) !usize {
         @intFromEnum(Chunk.Op_Code.OP_CONSTANT) => {
             return constantInstruction("0P_CONSTANT", chunk, offset);
         },
+        @intFromEnum(Chunk.Op_Code.OP_CONSTANT_LONG) => {
+            return constantLongInstruction("OP_CONSTANT_LONG", chunk, offset);
+        },
         @intFromEnum(Chunk.Op_Code.OP_RETURN) => {
             return simpleInstruction("OP_RETURN", offset);
         },
@@ -48,6 +51,19 @@ fn constantInstruction(name: []const u8, chunk: Chunk, offset: usize) !usize {
     try stdout.print("'\n", .{});
     try bw.flush();
     return offset + 2;
+}
+fn constantLongInstruction(name: []const u8, chunk: Chunk, offset: usize) !usize {
+    const high_byte: u24 = chunk.code.items[offset + 1];
+    const mid_byte: u24 = chunk.code.items[offset + 2];
+    const low_byte: u24 = chunk.code.items[offset + 3];
+
+    const constant = (high_byte << 16) | (mid_byte << 8) | low_byte;
+    try stdout.print("{s:>4} {d:>4} '", .{ name, constant });
+    try bw.flush();
+    try V.printValue(chunk.constants.values.items[constant]);
+    try stdout.print("'\n", .{});
+    try bw.flush();
+    return offset + 4;
 }
 
 fn simpleInstruction(name: []const u8, offset: usize) !usize {

@@ -4,6 +4,7 @@ const Self = @This();
 
 pub const Op_Code = enum(u8) {
     OP_CONSTANT,
+    OP_CONSTANT_LONG,
     OP_RETURN,
 };
 
@@ -29,6 +30,21 @@ pub fn addConstant(self: *Self, value: V.Value) !usize {
 pub fn writeChunk(self: *Self, byte: u8, line: i32) !void {
     try self.lines.append(line);
     try self.code.append(byte);
+}
+pub fn writeConstant(self: *Self, value: V.Value, line: i32) !void {
+    const constant = try self.addConstant(value);
+    if (constant <= 255) {
+        try self.writeChunk(@intFromEnum(Op_Code.OP_CONSTANT), line);
+        try self.writeChunk(@intCast(constant), line);
+    } else {
+        const high_byte = constant >> 16 & 0xFF;
+        const mid_byte = constant >> 8 & 0xFF;
+        const low_byte = constant & 0xFF;
+        try self.writeChunk(@intFromEnum(Op_Code.OP_CONSTANT_LONG), line);
+        try self.writeChunk(@intCast(high_byte), line);
+        try self.writeChunk(@intCast(mid_byte), line);
+        try self.writeChunk(@intCast(low_byte), line);
+    }
 }
 pub fn deinit(self: *Self) void {
     self.lines.deinit();
