@@ -8,8 +8,11 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     var chunk = Chunk.init(allocator);
     defer chunk.deinit();
-    try chunk.writeChunk(@intFromEnum(Chunk.Op_Code.OP_RETURN));
+    const constant = try chunk.addConstant(1.2);
+    try chunk.writeChunk(@intFromEnum(Chunk.Op_Code.OP_CONSTANT), 123);
+    try chunk.writeChunk(@intCast(constant), 123);
 
+    try chunk.writeChunk(@intFromEnum(Chunk.Op_Code.OP_RETURN), 123);
     try debug.disassembleChunk(chunk, "Test Chunk");
 }
 
