@@ -68,6 +68,9 @@ fn run() !InterpretResult {
                 try bw.flush();
                 return InterpretResult.INTERPRET_OK;
             },
+            @intFromEnum(Chunk.Op_Code.OP_NEGATE) => {
+                stack_push(-stack_pop());
+            },
             else => {
                 return InterpretResult.INTERPRET_COMPILE_ERROR;
             },

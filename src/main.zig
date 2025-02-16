@@ -19,6 +19,7 @@ pub fn main() !void {
     try chunk.writeConstant(1.2, 123);
     try chunk.writeConstant(1.2, 123);
 
+    try chunk.writeChunk(@intFromEnum(Chunk.Op_Code.OP_NEGATE), 123);
     try chunk.writeChunk(@intFromEnum(Chunk.Op_Code.OP_RETURN), 124);
     _ = try vm.interpret(&chunk);
     try debug.disassembleChunk(chunk, "Test Chunk");
