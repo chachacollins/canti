@@ -15,7 +15,7 @@ pub fn disassembleChunk(chunk: Chunk, name: []const u8) !void {
     }
 }
 
-fn disassembleInstruction(chunk: Chunk, offset: usize) !usize {
+pub fn disassembleInstruction(chunk: Chunk, offset: usize) !usize {
     try stdout.print("{d:0>4} ", .{offset});
     if (offset > 0 and chunk.lines.items[offset] == chunk.lines.items[offset - 1]) {
         try stdout.print("    | ", .{});
@@ -46,8 +46,7 @@ fn disassembleInstruction(chunk: Chunk, offset: usize) !usize {
 fn constantInstruction(name: []const u8, chunk: Chunk, offset: usize) !usize {
     const constant = chunk.code.items[offset + 1];
     try stdout.print("{s:>4} {d:>4} '", .{ name, constant });
-    try bw.flush();
-    try V.printValue(chunk.constants.values.items[constant]);
+    try V.printValue(chunk.constants.values.items[constant], stdout);
     try stdout.print("'\n", .{});
     try bw.flush();
     return offset + 2;
@@ -59,8 +58,7 @@ fn constantLongInstruction(name: []const u8, chunk: Chunk, offset: usize) !usize
 
     const constant = (high_byte << 16) | (mid_byte << 8) | low_byte;
     try stdout.print("{s:>4} {d:>4} '", .{ name, constant });
-    try bw.flush();
-    try V.printValue(chunk.constants.values.items[constant]);
+    try V.printValue(chunk.constants.values.items[constant], stdout);
     try stdout.print("'\n", .{});
     try bw.flush();
     return offset + 4;

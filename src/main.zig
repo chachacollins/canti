@@ -12,10 +12,11 @@ pub fn main() !void {
             std.debug.print("Memory leak detected\n", .{});
         }
     }
-    try vm.init(allocator);
+    try vm.init(allocator, true);
     defer vm.deinit();
     var chunk = Chunk.init(allocator);
     defer chunk.deinit();
+    try chunk.writeConstant(1.2, 123);
     try chunk.writeConstant(1.2, 123);
 
     try chunk.writeChunk(@intFromEnum(Chunk.Op_Code.OP_RETURN), 124);

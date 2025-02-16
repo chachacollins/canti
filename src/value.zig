@@ -17,11 +17,6 @@ pub const ValueArray = struct {
     }
 };
 
-pub fn printValue(value: Value) !void {
-    const stdout_file = std.io.getStdOut().writer();
-    var bw = std.io.bufferedWriter(stdout_file);
-    const stdout = bw.writer();
-
+pub fn printValue(value: Value, stdout: anytype) !void {
     try stdout.print("{d}", .{value});
-    try bw.flush();
 }
