@@ -14,7 +14,7 @@ const InterpretResult = enum {
     INTERPRET_RUNTIME_ERROR,
 };
 
-const STACK_MAX = 256;
+const STACK_MAX = 65000;
 
 chunk: *Chunk,
 stream: std.ArrayList(u8),
@@ -62,11 +62,9 @@ fn run() !InterpretResult {
                 const constant = readConstant();
                 stackPush(constant);
             },
-            @intFromEnum(Chunk.Op_Code.OP_RETURN) => {
-                try V.printValue(stackPop(), stdout);
-                try stdout.print("\n", .{});
-                try bw.flush();
-                return InterpretResult.INTERPRET_OK;
+            @intFromEnum(Chunk.Op_Code.OP_CONSTANT_LONG) => {
+                const constant = readLongConstant();
+                stackPush(constant);
             },
             @intFromEnum(Chunk.Op_Code.OP_ADD) => {
                 binaryOp('+');
@@ -82,6 +80,12 @@ fn run() !InterpretResult {
             },
             @intFromEnum(Chunk.Op_Code.OP_NEGATE) => {
                 stackPush(-stackPop());
+            },
+            @intFromEnum(Chunk.Op_Code.OP_RETURN) => {
+                try V.printValue(stackPop(), stdout);
+                try stdout.print("\n", .{});
+                try bw.flush();
+                return InterpretResult.INTERPRET_OK;
             },
             else => {
                 return InterpretResult.INTERPRET_COMPILE_ERROR;
@@ -99,6 +103,14 @@ fn readByte() u8 {
 fn readConstant() V.Value {
     const const_index = readByte();
     return vm.chunk.constants.values.items[const_index];
+}
+
+fn readLongConstant() V.Value {
+    const high_index: u24 = readByte();
+    const mid_index: u24 = readByte();
+    const low_index: u24 = readByte();
+    const index = (high_index << 16) | (mid_index << 8) | low_index;
+    return vm.chunk.constants.values.items[index];
 }
 
 fn stackPush(value: V.Value) void {
