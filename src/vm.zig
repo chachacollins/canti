@@ -60,16 +60,28 @@ fn run() !InterpretResult {
         switch (instruction) {
             @intFromEnum(Chunk.Op_Code.OP_CONSTANT) => {
                 const constant = readConstant();
-                stack_push(constant);
+                stackPush(constant);
             },
             @intFromEnum(Chunk.Op_Code.OP_RETURN) => {
-                try V.printValue(stack_pop(), stdout);
+                try V.printValue(stackPop(), stdout);
                 try stdout.print("\n", .{});
                 try bw.flush();
                 return InterpretResult.INTERPRET_OK;
             },
+            @intFromEnum(Chunk.Op_Code.OP_ADD) => {
+                binaryOp('+');
+            },
+            @intFromEnum(Chunk.Op_Code.OP_SUBTRACT) => {
+                binaryOp('-');
+            },
+            @intFromEnum(Chunk.Op_Code.OP_DIVIDE) => {
+                binaryOp('/');
+            },
+            @intFromEnum(Chunk.Op_Code.OP_MULTIPLY) => {
+                binaryOp('*');
+            },
             @intFromEnum(Chunk.Op_Code.OP_NEGATE) => {
-                stack_push(-stack_pop());
+                stackPush(-stackPop());
             },
             else => {
                 return InterpretResult.INTERPRET_COMPILE_ERROR;
@@ -89,11 +101,23 @@ fn readConstant() V.Value {
     return vm.chunk.constants.values.items[const_index];
 }
 
-fn stack_push(value: V.Value) void {
+fn stackPush(value: V.Value) void {
     vm.stack[vm.stack_top] = value;
     vm.stack_top += 1;
 }
-fn stack_pop() V.Value {
+fn stackPop() V.Value {
     vm.stack_top -= 1;
     return vm.stack[vm.stack_top];
+}
+
+fn binaryOp(op: u8) void {
+    const b = stackPop();
+    const a = stackPop();
+    switch (op) {
+        '-' => stackPush(a - b),
+        '+' => stackPush(a + b),
+        '/' => stackPush(a / b),
+        '*' => stackPush(a * b),
+        else => {},
+    }
 }

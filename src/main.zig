@@ -16,10 +16,10 @@ pub fn main() !void {
     defer vm.deinit();
     var chunk = Chunk.init(allocator);
     defer chunk.deinit();
-    try chunk.writeConstant(1.2, 123);
+    try chunk.writeConstant(3.2, 123);
     try chunk.writeConstant(1.2, 123);
 
-    try chunk.writeChunk(@intFromEnum(Chunk.Op_Code.OP_NEGATE), 123);
+    try chunk.writeChunk(@intFromEnum(Chunk.Op_Code.OP_ADD), 123);
     try chunk.writeChunk(@intFromEnum(Chunk.Op_Code.OP_RETURN), 124);
     _ = try vm.interpret(&chunk);
     try debug.disassembleChunk(chunk, "Test Chunk");
