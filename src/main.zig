@@ -19,8 +19,18 @@ fn repl(allocator: std.mem.Allocator) !void {
         std.debug.print("{s}\n", .{line.?});
     }
 }
-fn runFile(file: []const u8) void {
-    _ = file;
+fn runFile(filepath: []const u8, allocator: std.mem.Allocator) !void {
+    const file = try readFile(filepath, allocator);
+    defer allocator.free(file);
+    std.debug.print("file read: {s}\n", .{file});
+}
+
+fn readFile(filepath: []const u8, allocator: std.mem.Allocator) ![]u8 {
+    const file = try std.fs.cwd().openFile(filepath, .{});
+    defer file.close();
+    const buffer = try allocator.alloc(u8, try file.getEndPos());
+    const read = try std.fs.cwd().readFile(filepath, buffer);
+    return read;
 }
 
 pub fn main() !void {
@@ -39,7 +49,7 @@ pub fn main() !void {
     if (args.len == 1) {
         try repl(allocator);
     } else if (args.len == 2) {
-        runFile(args[1]);
+        try runFile(args[1], allocator);
     } else {
         std.debug.print("Usage: canti [path]\n", .{});
         std.process.exit(69);
