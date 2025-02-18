@@ -3,6 +3,26 @@ const Chunk = @import("chunk.zig");
 const vm = @import("vm.zig");
 const debug = @import("debug.zig");
 
+const stdout_file = std.io.getStdOut().writer();
+var bw = std.io.bufferedWriter(stdout_file);
+const stdout = bw.writer();
+
+const stdin_file = std.io.getStdIn();
+var reader = std.io.bufferedReader(stdin_file.reader());
+const stdin = reader.reader();
+
+fn repl(allocator: std.mem.Allocator) !void {
+    while (true) {
+        try stdout.print(">>  ", .{});
+        try bw.flush();
+        const line = try stdin.readUntilDelimiterOrEofAlloc(allocator, '\n', 1024);
+        std.debug.print("{s}\n", .{line.?});
+    }
+}
+fn runFile(file: []const u8) void {
+    _ = file;
+}
+
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
@@ -14,13 +34,14 @@ pub fn main() !void {
     }
     try vm.init(allocator, true);
     defer vm.deinit();
-    var chunk = Chunk.init(allocator);
-    defer chunk.deinit();
-    try chunk.writeConstant(3.2, 123);
-    try chunk.writeConstant(1.2, 123);
-
-    try chunk.writeChunk(@intFromEnum(Chunk.Op_Code.OP_ADD), 123);
-    try chunk.writeChunk(@intFromEnum(Chunk.Op_Code.OP_RETURN), 124);
-    _ = try vm.interpret(&chunk);
-    try debug.disassembleChunk(chunk, "Test Chunk");
+    const args = try std.process.argsAlloc(allocator);
+    defer std.process.argsFree(allocator, args);
+    if (args.len == 1) {
+        try repl(allocator);
+    } else if (args.len == 2) {
+        runFile(args[1]);
+    } else {
+        std.debug.print("Usage: canti [path]\n", .{});
+        std.process.exit(69);
+    }
 }
