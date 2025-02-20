@@ -1,3 +1,4 @@
+const std = @import("std");
 const Self = @This();
 
 ch: u8,
@@ -7,6 +8,13 @@ line: i32,
 source: []const u8,
 
 var scanner: Self = undefined;
+
+var keywords = std.StaticStringMap(TokenType).initComptime(
+    .{
+        .{ "fn", TokenType.TOKEN_FUN },
+        .{ "var", TokenType.TOKEN_VAR },
+    },
+);
 
 pub fn initScanner(source: []const u8) void {
     scanner.source = source;
@@ -36,6 +44,24 @@ pub const Token = struct {
         };
         return token;
     }
+    fn isLetter(c: u8) bool {
+        if (std.ascii.isAlphabetic(c) or c == '_') {
+            return true;
+        }
+        return false;
+    }
+    fn readIdent() []const u8 {
+        const start = scanner.pos;
+        while (isLetter(peekChar())) {
+            readChar();
+        }
+        const end = scanner.readPos;
+        return scanner.source[start..end];
+    }
+    fn getKeyword(literal: []const u8) TokenType {
+        return keywords.get(literal) orelse TokenType.TOKEN_IDENTIFIER;
+    }
+
     fn skipWhiteSpace() void {
         if (scanner.ch == '\n') {
             scanner.line += 1;
@@ -66,6 +92,7 @@ pub const Token = struct {
                 if (peekChar() == '/') dropLine();
                 return makeToken(.TOKEN_SLASH, "/");
             },
+            '=' => return makeToken(.TOKEN_EQUAL, "="),
             '{' => return makeToken(.TOKEN_LEFT_BRACE, "{"),
             '}' => return makeToken(.TOKEN_RIGHT_BRACE, "}"),
             '(' => return makeToken(.TOKEN_LEFT_PAREN, "("),
@@ -75,6 +102,11 @@ pub const Token = struct {
             '.' => return makeToken(.TOKEN_DOT, "."),
             '\x00' => return makeToken(.TOKEN_EOF, ""),
             else => {
+                if (isLetter(scanner.ch)) {
+                    const literal = readIdent();
+                    const ident = getKeyword(literal);
+                    return makeToken(ident, literal);
+                }
                 return makeToken(.TOKEN_ERROR, "Error could not recognize token");
             },
         }
