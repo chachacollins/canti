@@ -12,6 +12,7 @@ pub fn initScanner(source: []const u8) void {
     scanner.source = source;
     scanner.pos = 0;
     scanner.readPos = 0;
+    scanner.line = 1;
 }
 
 pub const Token = struct {
@@ -36,21 +37,45 @@ pub const Token = struct {
         return token;
     }
     fn skipWhiteSpace() void {
+        if (scanner.ch == '\n') {
+            scanner.line += 1;
+            readChar();
+        }
         while (scanner.ch == ' ' or scanner.ch == '\r' or scanner.ch == '\t') {
+            readChar();
+        }
+    }
+    fn peekChar() u8 {
+        if (scanner.readPos >= scanner.source.len) {
+            return '\x00';
+        }
+        return scanner.source[scanner.readPos];
+    }
+    fn dropLine() void {
+        while (scanner.ch != '\n') {
             readChar();
         }
     }
     pub fn scanToken() Token {
         readChar();
+        skipWhiteSpace();
         switch (scanner.ch) {
             '+' => return makeToken(.TOKEN_PLUS, "+"),
             '-' => return makeToken(.TOKEN_MINUS, "-"),
-            '/' => return makeToken(.TOKEN_SLASH, "/"),
+            '/' => {
+                if (peekChar() == '/') dropLine();
+                return makeToken(.TOKEN_SLASH, "/");
+            },
             '{' => return makeToken(.TOKEN_LEFT_BRACE, "{"),
             '}' => return makeToken(.TOKEN_RIGHT_BRACE, "}"),
+            '(' => return makeToken(.TOKEN_LEFT_PAREN, "("),
+            ')' => return makeToken(.TOKEN_RIGHT_PAREN, ")"),
+            ';' => return makeToken(.TOKEN_SEMICOLON, ";"),
+            ',' => return makeToken(.TOKEN_COMMA, ","),
+            '.' => return makeToken(.TOKEN_DOT, "."),
             '\x00' => return makeToken(.TOKEN_EOF, ""),
             else => {
-                return makeToken(.TOKEN_ERROR, "");
+                return makeToken(.TOKEN_ERROR, "Error could not recognize token");
             },
         }
     }

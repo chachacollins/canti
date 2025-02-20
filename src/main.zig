@@ -27,7 +27,6 @@ fn runFile(filepath: []const u8, allocator: std.mem.Allocator) !void {
     const result = try vm.interpret(file);
     if (result == .INTERPRET_COMPILE_ERROR) std.process.exit(65);
     if (result == .INTERPRET_RUNTIME_ERROR) std.process.exit(70);
-    std.debug.print("file read: {s}\n", .{file});
 }
 
 fn readFile(filepath: []const u8, allocator: std.mem.Allocator) ![]u8 {
