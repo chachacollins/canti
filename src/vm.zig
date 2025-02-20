@@ -2,6 +2,7 @@ const std = @import("std");
 const Chunk = @import("chunk.zig");
 const V = @import("value.zig");
 const Debug = @import("debug.zig");
+const Compiler = @import("compiler.zig");
 const Self = @This();
 
 const stdout_file = std.io.getStdOut().writer();
@@ -33,11 +34,9 @@ pub fn init(allocator: std.mem.Allocator, debug: bool) !void {
 }
 pub fn deinit() void {}
 
-pub fn interpret(chunk: *Chunk) !InterpretResult {
-    vm.chunk = chunk;
-    vm.stream = chunk.code;
-    vm.ip = 0;
-    return run();
+pub fn interpret(source: []const u8) !InterpretResult {
+    try Compiler.compile(source);
+    return InterpretResult.INTERPRET_OK;
 }
 fn run() !InterpretResult {
     while (true) {
@@ -92,7 +91,6 @@ fn run() !InterpretResult {
             },
         }
     }
-    return InterpretResult.INTERPRET_OK;
 }
 fn readByte() u8 {
     const byte = vm.stream.items[vm.ip];

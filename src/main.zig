@@ -16,12 +16,17 @@ fn repl(allocator: std.mem.Allocator) !void {
         try stdout.print(">>  ", .{});
         try bw.flush();
         const line = try stdin.readUntilDelimiterOrEofAlloc(allocator, '\n', 1024);
-        std.debug.print("{s}\n", .{line.?});
+        const result = try vm.interpret(line.?);
+        if (result == .INTERPRET_COMPILE_ERROR) std.process.exit(65);
+        if (result == .INTERPRET_RUNTIME_ERROR) std.process.exit(70);
     }
 }
 fn runFile(filepath: []const u8, allocator: std.mem.Allocator) !void {
     const file = try readFile(filepath, allocator);
     defer allocator.free(file);
+    const result = try vm.interpret(file);
+    if (result == .INTERPRET_COMPILE_ERROR) std.process.exit(65);
+    if (result == .INTERPRET_RUNTIME_ERROR) std.process.exit(70);
     std.debug.print("file read: {s}\n", .{file});
 }
 
