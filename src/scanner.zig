@@ -13,6 +13,19 @@ var keywords = std.StaticStringMap(TokenType).initComptime(
     .{
         .{ "fn", TokenType.TOKEN_FUN },
         .{ "var", TokenType.TOKEN_VAR },
+        .{ "class", TokenType.TOKEN_CLASS },
+        .{ "super", TokenType.TOKEN_SUPER },
+        .{ "if", TokenType.TOKEN_IF },
+        .{ "else", TokenType.TOKEN_ELSE },
+        .{ "and", TokenType.TOKEN_AND },
+        .{ "while", TokenType.TOKEN_WHILE },
+        .{ "or", TokenType.TOKEN_OR },
+        .{ "nil", TokenType.TOKEN_NIL },
+        .{ "print", TokenType.TOKEN_PRINT },
+        .{ "for", TokenType.TOKEN_FOR },
+        .{ "true", TokenType.TOKEN_TRUE },
+        .{ "false", TokenType.TOKEN_FALSE },
+        .{ "return", TokenType.TOKEN_RETURN },
     },
 );
 
@@ -63,11 +76,10 @@ pub const Token = struct {
     }
 
     fn skipWhiteSpace() void {
-        if (scanner.ch == '\n') {
-            scanner.line += 1;
-            readChar();
-        }
-        while (scanner.ch == ' ' or scanner.ch == '\r' or scanner.ch == '\t') {
+        while (scanner.ch == ' ' or scanner.ch == '\r' or scanner.ch == '\t' or scanner.ch == '\n') {
+            if (scanner.ch == '\n') {
+                scanner.line += 1;
+            }
             readChar();
         }
     }
