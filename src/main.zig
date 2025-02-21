@@ -39,13 +39,16 @@ fn readFile(filepath: []const u8, allocator: std.mem.Allocator) ![]u8 {
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const allocator = gpa.allocator();
+    const gpa_allocator = gpa.allocator();
     defer {
         const v = gpa.deinit();
         if (v == .leak) {
             std.debug.print("Memory leak detected\n", .{});
         }
     }
+    var arena_allocator = std.heap.ArenaAllocator.init(gpa_allocator);
+    defer arena_allocator.deinit();
+    const allocator = arena_allocator.allocator();
     try vm.init(allocator, true);
     defer vm.deinit();
     const args = try std.process.argsAlloc(allocator);

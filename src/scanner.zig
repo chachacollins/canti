@@ -6,6 +6,7 @@ pos: usize,
 readPos: usize,
 line: i32,
 source: []const u8,
+allocator: std.mem.Allocator,
 
 var scanner: Self = undefined;
 
@@ -29,11 +30,12 @@ var keywords = std.StaticStringMap(TokenType).initComptime(
     },
 );
 
-pub fn initScanner(source: []const u8) void {
+pub fn initScanner(source: []const u8, allocator: std.mem.Allocator) void {
     scanner.source = source;
     scanner.pos = 0;
     scanner.readPos = 0;
     scanner.line = 1;
+    scanner.allocator = allocator;
 }
 
 pub const Token = struct {
@@ -54,6 +56,7 @@ pub const Token = struct {
             .type = type_,
             .literal = literal,
             .line = scanner.line,
+            //TODO: fix this line stuff
         };
         return token;
     }
@@ -90,9 +93,40 @@ pub const Token = struct {
         return scanner.source[scanner.readPos];
     }
     fn dropLine() void {
-        while (scanner.ch != '\n') {
+        while (scanner.ch != '\n' and scanner.ch != '\x00') {
             readChar();
         }
+    }
+    fn readString() []const u8 {
+        const start = scanner.pos;
+        while (true) {
+            readChar();
+            if (scanner.ch == '"' or scanner.ch == '\x00') {
+                break;
+            }
+            if (scanner.ch == '\n') {
+                scanner.line += 1;
+            }
+        }
+        return scanner.source[start..scanner.pos];
+    }
+    fn readNumber() []const u8 {
+        const start = scanner.pos;
+        while (std.ascii.isDigit(scanner.ch)) {
+            readChar();
+        }
+        if (scanner.ch == '.' and std.ascii.isDigit(peekChar())) {
+            readChar();
+            while (std.ascii.isDigit(scanner.ch)) {
+                readChar();
+            }
+        }
+        const end = scanner.pos;
+        return scanner.source[start..end];
+    }
+    fn errorToken(ch: u8) Token {
+        const str = std.fmt.allocPrint(scanner.allocator, "Error could not identify the token {c}", .{ch}) catch unreachable;
+        return makeToken(.TOKEN_ERROR, str);
     }
     pub fn scanToken() Token {
         readChar();
@@ -101,10 +135,41 @@ pub const Token = struct {
             '+' => return makeToken(.TOKEN_PLUS, "+"),
             '-' => return makeToken(.TOKEN_MINUS, "-"),
             '/' => {
-                if (peekChar() == '/') dropLine();
+                if (peekChar() == '/') {
+                    dropLine();
+                    return makeToken(.TOKEN_COMMENT, "comment");
+                }
                 return makeToken(.TOKEN_SLASH, "/");
             },
-            '=' => return makeToken(.TOKEN_EQUAL, "="),
+            '!' => {
+                if (peekChar() == '=') {
+                    readChar();
+                    return makeToken(.TOKEN_BANG_EQUAL, "!=");
+                }
+                return makeToken(.TOKEN_BANG, "!");
+            },
+            '*' => return makeToken(.TOKEN_STAR, "*"),
+            '=' => {
+                if (peekChar() == '=') {
+                    readChar();
+                    return makeToken(.TOKEN_EQUAL_EQUAL, "==");
+                }
+                return makeToken(.TOKEN_EQUAL, "=");
+            },
+            '>' => {
+                if (peekChar() == '=') {
+                    readChar();
+                    return makeToken(.TOKEN_GREATER_EQUAL, ">=");
+                }
+                return makeToken(.TOKEN_GREATER, ">");
+            },
+            '<' => {
+                if (peekChar() == '=') {
+                    readChar();
+                    return makeToken(.TOKEN_LESS_EQUAL, "<=");
+                }
+                return makeToken(.TOKEN_LESS, "<");
+            },
             '{' => return makeToken(.TOKEN_LEFT_BRACE, "{"),
             '}' => return makeToken(.TOKEN_RIGHT_BRACE, "}"),
             '(' => return makeToken(.TOKEN_LEFT_PAREN, "("),
@@ -112,6 +177,11 @@ pub const Token = struct {
             ';' => return makeToken(.TOKEN_SEMICOLON, ";"),
             ',' => return makeToken(.TOKEN_COMMA, ","),
             '.' => return makeToken(.TOKEN_DOT, "."),
+            '"' => {
+                readChar();
+                const literal = readString();
+                return makeToken(.TOKEN_STRING, literal);
+            },
             '\x00' => return makeToken(.TOKEN_EOF, ""),
             else => {
                 if (isLetter(scanner.ch)) {
@@ -119,7 +189,11 @@ pub const Token = struct {
                     const ident = getKeyword(literal);
                     return makeToken(ident, literal);
                 }
-                return makeToken(.TOKEN_ERROR, "Error could not recognize token");
+                if (std.ascii.isDigit(scanner.ch)) {
+                    const literal = readNumber();
+                    return makeToken(.TOKEN_NUMBER, literal);
+                }
+                return errorToken(scanner.ch);
             },
         }
     }
@@ -147,6 +221,7 @@ const TokenType = enum {
     TOKEN_GREATER_EQUAL,
     TOKEN_LESS,
     TOKEN_LESS_EQUAL,
+    TOKEN_COMMENT,
     // Literals.
     TOKEN_IDENTIFIER,
     TOKEN_STRING,

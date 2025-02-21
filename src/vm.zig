@@ -35,7 +35,7 @@ pub fn init(allocator: std.mem.Allocator, debug: bool) !void {
 pub fn deinit() void {}
 
 pub fn interpret(source: []const u8) !InterpretResult {
-    try Compiler.compile(source);
+    try Compiler.compile(source, vm.allocator);
     return InterpretResult.INTERPRET_OK;
 }
 fn run() !InterpretResult {

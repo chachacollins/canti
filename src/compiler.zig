@@ -5,8 +5,8 @@ const stdout_file = std.io.getStdOut().writer();
 var bw = std.io.bufferedWriter(stdout_file);
 const stdout = bw.writer();
 
-pub fn compile(source: []const u8) !void {
-    Scanner.initScanner(source);
+pub fn compile(source: []const u8, allocator: std.mem.Allocator) !void {
+    Scanner.initScanner(source, allocator);
     var line: i32 = -1;
 
     while (true) {
