@@ -60,12 +60,12 @@ const ParseRule = struct {
 
 const rules = blk: {
     var map = std.EnumArray(Scanner.TokenType, ParseRule).initFill(.{});
-    map.set(.left_paren, .{ .prefix = grouping });
-    map.set(.minus, .{ .prefix = unary, .infix = binary, .precedence = .PREC_TERM });
-    map.set(.plus, .{ .infix = binary, .precedence = .PREC_TERM });
-    map.set(.star, .{ .infix = binary, .precedence = .PREC_FACTOR });
-    map.set(.slash, .{ .infix = binary, .precedence = .PREC_FACTOR });
-    map.set(.number, ParseRule{ .prefix = number });
+    map.set(.TOKEN_LEFT_PAREN, .{ .prefix = grouping });
+    map.set(.TOKEN_MINUS, .{ .prefix = unary, .infix = binary, .precedence = .PREC_TERM });
+    map.set(.TOKEN_PLUS, .{ .infix = binary, .precedence = .PREC_TERM });
+    map.set(.TOKEN_STAR, .{ .infix = binary, .precedence = .PREC_FACTOR });
+    map.set(.TOKEN_SLASH, .{ .infix = binary, .precedence = .PREC_FACTOR });
+    map.set(.TOKEN_NUMBER, ParseRule{ .prefix = number });
     break :blk map;
 };
 
@@ -84,10 +84,10 @@ fn errorAt(token: *Scanner.Token, message: []const u8) void {
     if (parser.panic_mode) return;
     parser.panic_mode = true;
     std.debug.print("[lined {d}] Error", .{token.line});
-    if (token.tag == .eof) {
+    if (token.Type == .TOKEN_EOF) {
         std.debug.print("  at end", .{});
-    } else if (token.tag == .@"error") {} else {
-        std.debug.print(" at {s}", .{token.raw});
+    } else if (token.Type == .TOKEN_ERROR) {} else {
+        std.debug.print(" at {s}", .{token.Literal});
     }
     std.debug.print(": {s}\n", .{message});
     parser.had_error = true;
@@ -97,14 +97,14 @@ fn advance() void {
     parser.previous = parser.current;
 
     while (true) {
-        parser.current = parser.scanner.next();
-        if (parser.current.?.tag != .@"error") break;
-        errorAtCurrent(parser.current.?.raw);
+        parser.current = parser.scanner.nextToken();
+        if (parser.current.?.Type != .TOKEN_ERROR) break;
+        errorAtCurrent(parser.current.?.Literal);
     }
 }
 
 fn consume(type_: Scanner.TokenType, message: []const u8) void {
-    if (parser.current.?.tag == type_) {
+    if (parser.current.?.Type == type_) {
         advance();
         return;
     }
@@ -135,13 +135,14 @@ fn emitConstant(value: Value.Value) !void {
 }
 
 fn number() !void {
-    const value = std.fmt.parseFloat(Value.Value, parser.previous.?.raw) catch unreachable;
+    const value = std.fmt.parseFloat(Value.Value, parser.previous.?.Literal) catch unreachable;
     try emitConstant(value);
 }
 
 fn parsePrecedence(precedence: Precedence) !void {
     advance();
-    const prefix_rule = getRule(parser.previous.?.tag).prefix;
+    const prefix_rule = getRule(parser.previous.?.Type).prefix;
+    std.debug.print("{}\n", .{parser.previous.?.Type});
     if (prefix_rule == null) {
         error_("Expected expression");
         return;
@@ -149,9 +150,9 @@ fn parsePrecedence(precedence: Precedence) !void {
 
     const prefix = prefix_rule.?;
     try prefix();
-    while (@intFromEnum(precedence) < @intFromEnum(getRule(parser.current.?.tag).precedence)) {
+    while (@intFromEnum(precedence) < @intFromEnum(getRule(parser.current.?.Type).precedence)) {
         advance();
-        const infix_rule = getRule(parser.previous.?.tag).infix.?;
+        const infix_rule = getRule(parser.previous.?.Type).infix.?;
         try infix_rule();
     }
 }
@@ -162,51 +163,49 @@ fn expression() !void {
 
 fn grouping() !void {
     try expression();
-    consume(.right_paren, "Expected ')' after the expression.");
+    std.debug.print("{}\n", .{parser.current.?.Type});
+    std.debug.print("{s}\n", .{parser.current.?.Literal});
+    consume(.TOKEN_RIGHT_PAREN, "Expected ')' after the expression.");
 }
 
 fn unary() !void {
-    const operator_type = parser.previous.?.tag;
+    const operator_Type = parser.previous.?.Type;
     try parsePrecedence(.PREC_UNARY);
 
-    switch (operator_type) {
-        .minus => emitByte(@intFromEnum(Chunk.Op_Code.OP_NEGATE)),
+    switch (operator_Type) {
+        .TOKEN_MINUS => emitByte(@intFromEnum(Chunk.Op_Code.OP_NEGATE)),
         else => unreachable,
     }
 }
 
 fn binary() !void {
-    const operator_type = parser.previous.?.tag;
+    const operator_Type = parser.previous.?.Type;
 
-    const rule = getRule(operator_type);
+    const rule = getRule(operator_Type);
 
     try parsePrecedence(rule.precedence.increment());
 
-    switch (operator_type) {
-        .plus => emitByte(@intFromEnum(Chunk.Op_Code.OP_ADD)),
-        .minus => emitByte(@intFromEnum(Chunk.Op_Code.OP_SUBTRACT)),
-        .star => emitByte(@intFromEnum(Chunk.Op_Code.OP_MULTIPLY)),
-        .slash => emitByte(@intFromEnum(Chunk.Op_Code.OP_DIVIDE)),
+    switch (operator_Type) {
+        .TOKEN_PLUS => emitByte(@intFromEnum(Chunk.Op_Code.OP_ADD)),
+        .TOKEN_MINUS => emitByte(@intFromEnum(Chunk.Op_Code.OP_SUBTRACT)),
+        .TOKEN_STAR => emitByte(@intFromEnum(Chunk.Op_Code.OP_MULTIPLY)),
+        .TOKEN_SLASH => emitByte(@intFromEnum(Chunk.Op_Code.OP_DIVIDE)),
         else => unreachable,
     }
 }
 
 pub fn compile(source: []const u8, allocator: std.mem.Allocator) !CompilerReturns {
     var comp_ret = CompilerReturns.init(allocator);
-    const scanner = Scanner{
-        .source = source,
-    };
-    parser.scanner = scanner;
-
     compiling_chunk = comp_ret.chunk;
 
     parser.had_error = false;
     parser.panic_mode = false;
+    parser.scanner = Scanner.init(source);
     advance();
 
     try expression();
 
-    consume(.eof, "Expected end of expression");
+    consume(.TOKEN_EOF, "Expected end of expression");
     endCompiler();
     comp_ret.success = !parser.had_error;
     comp_ret.chunk = compiling_chunk;

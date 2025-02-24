@@ -1,323 +1,302 @@
 const std = @import("std");
-const Scanner = @This();
-const isDigit = std.ascii.isDigit;
-fn isAlpha(c: u8) bool {
-    return switch (c) {
-        'a'...'z', 'A'...'Z', '_' => true,
-        else => false,
-    };
+const Self = @This();
+
+input: []const u8,
+position: usize,
+readPosition: usize,
+ch: u8,
+line: usize, 
+
+pub const Token = struct {
+    Literal: []const u8,
+    Type: TokenType,
+    line: usize,  
+};
+
+fn getKeyword(literal: []const u8) TokenType {
+    return keywords.get(literal) orelse TokenType.TOKEN_IDENTIFIER;
 }
 
-source: []const u8,
-start: usize = 0,
-current: usize = 0,
-line: usize = 1,
+var keywords = std.StaticStringMap(TokenType).initComptime(
+    .{
+        .{ "fn", TokenType.TOKEN_FUN },
+        .{ "var", TokenType.TOKEN_VAR },
+        .{ "class", TokenType.TOKEN_CLASS },
+        .{ "super", TokenType.TOKEN_SUPER },
+        .{ "if", TokenType.TOKEN_IF },
+        .{ "else", TokenType.TOKEN_ELSE },
+        .{ "and", TokenType.TOKEN_AND },
+        .{ "while", TokenType.TOKEN_WHILE },
+        .{ "or", TokenType.TOKEN_OR },
+        .{ "nil", TokenType.TOKEN_NIL },
+        .{ "print", TokenType.TOKEN_PRINT },
+        .{ "for", TokenType.TOKEN_FOR },
+        .{ "true", TokenType.TOKEN_TRUE },
+        .{ "false", TokenType.TOKEN_FALSE },
+        .{ "return", TokenType.TOKEN_RETURN },
+    },
+);
 
 pub const TokenType = enum {
     // Single-character tokens.
-    left_paren,
-    right_paren,
-    left_brace,
-    right_brace,
-    comma,
-    dot,
-    minus,
-    plus,
-    semicolon,
-    slash,
-    star,
-    // one or two character tokens.
-    bang,
-    bang_equal,
-    equal,
-    equal_equal,
-    greater,
-    greater_equal,
-    less,
-    less_equal,
-    // literals.
-    identifier,
-    string,
-    number,
-    // keywords.
-    @"and",
-    class,
-    @"else",
-    false,
-    @"for",
-    fun,
-    @"if",
-    nil,
-    @"or",
-    print,
-    @"return",
-    super,
-    this,
-    true,
-    @"var",
-    @"while",
+    TOKEN_LEFT_PAREN,
+    TOKEN_RIGHT_PAREN,
+    TOKEN_LEFT_BRACE,
+    TOKEN_RIGHT_BRACE,
+    TOKEN_COMMA,
+    TOKEN_DOT,
+    TOKEN_MINUS,
+    TOKEN_PLUS,
+    TOKEN_SEMICOLON,
+    TOKEN_SLASH,
+    TOKEN_STAR,
+    // One or two character tokens.
+    TOKEN_BANG,
+    TOKEN_BANG_EQUAL,
+    TOKEN_EQUAL,
+    TOKEN_EQUAL_EQUAL,
+    TOKEN_GREATER,
+    TOKEN_GREATER_EQUAL,
+    TOKEN_LESS,
+    TOKEN_LESS_EQUAL,
+    TOKEN_COMMENT,
+    // Literals.
+    TOKEN_IDENTIFIER,
+    TOKEN_STRING,
+    TOKEN_NUMBER,
+    TOKEN_FLOAT,  // Added float token type
+    // Keywords.
+    TOKEN_AND,
+    TOKEN_CLASS,
+    TOKEN_ELSE,
+    TOKEN_FALSE,
+    TOKEN_FOR,
+    TOKEN_FUN,
+    TOKEN_IF,
+    TOKEN_NIL,
+    TOKEN_OR,
+    TOKEN_PRINT,
+    TOKEN_RETURN,
+    TOKEN_SUPER,
+    TOKEN_THIS,
+    TOKEN_TRUE,
+    TOKEN_VAR,
+    TOKEN_WHILE,
 
-    @"error",
-    eof,
+    TOKEN_ERROR,
+    TOKEN_EOF,
 };
 
-pub const Token = struct {
-    line: usize,
-    tag: TokenType,
-    raw: []const u8,
+pub fn init(input: []const u8) Self {
+    var lexer = Self{
+        .input = input,
+        .position = 0,
+        .readPosition = 0,
+        .ch = undefined,
+        .line = 1,
+    };
+    lexer.readChar();
+    return lexer;
+}
 
-    pub fn equal(a: *const Token, b: Token) bool {
-        if (a.raw.len != b.raw.len) return false;
-        return std.mem.eql(u8, a.raw, b.raw);
+fn peekChar(self: *Self) u8 {
+    if (self.readPosition >= self.input.len) {
+        return 0;
+    } else {
+        return self.input[self.readPosition];
     }
-};
-fn makeToken(scanner: *Scanner, tag: TokenType) Token {
-    return .{
-        .tag = tag,
-        .line = scanner.line,
-        .raw = scanner.source[scanner.start..scanner.current],
-    };
-}
-fn errorToken(scanner: *Scanner, message: []const u8) Token {
-    return .{
-        .tag = .@"error",
-        .line = scanner.line,
-        .raw = message,
-    };
 }
 
-pub fn next(scanner: *Scanner) ?Token {
-    scanner.skipWhitespace();
-
-    scanner.start = scanner.current;
-    if (scanner.isAtEnd()) return scanner.makeToken(.eof);
-
-    const c = scanner.advance();
-    if (isDigit(c)) return scanner.number();
-    if (isAlpha(c)) return scanner.identifier();
-
-    return switch (c) {
-        '(' => scanner.makeToken(.left_paren),
-        ')' => scanner.makeToken(.right_paren),
-        '{' => scanner.makeToken(.left_brace),
-        '}' => scanner.makeToken(.right_brace),
-        ';' => scanner.makeToken(.semicolon),
-        ',' => scanner.makeToken(.comma),
-        '.' => scanner.makeToken(.dot),
-        '-' => scanner.makeToken(.minus),
-        '+' => scanner.makeToken(.plus),
-        '*' => scanner.makeToken(.star),
-        '/' => scanner.makeToken(.slash),
-        '!' => scanner.makeToken(if (scanner.match('=')) .bang_equal else .bang),
-        '=' => scanner.makeToken(if (scanner.match('=')) .equal_equal else .equal),
-        '<' => scanner.makeToken(if (scanner.match('=')) .less_equal else .less),
-        '>' => scanner.makeToken(if (scanner.match('=')) .greater_equal else .greater),
-        '"' => scanner.string(),
-        else => scanner.errorToken("Unexpected character."),
-    };
+fn readChar(self: *Self) void {
+    if (self.readPosition >= self.input.len) {
+        self.ch = 0;
+    } else {
+        self.ch = self.input[self.readPosition];
+    }
+    self.position = self.readPosition;
+    self.readPosition += 1;
 }
 
-fn advance(scanner: *Scanner) u8 {
-    if (scanner.isAtEnd()) return 0;
-    defer scanner.current += 1;
-    return scanner.source[scanner.current];
+fn readIdentifier(self: *Self) []const u8 {
+    const position = self.position;
+    while (isLetter(self.ch)) {
+        self.readChar();
+    }
+    return self.input[position..self.position];
 }
 
-fn match(scanner: *Scanner, char: u8) bool {
-    if (scanner.isAtEnd()) return false;
-    if (scanner.source[scanner.current] != char) return false;
-    scanner.current += 1;
-    return true;
-}
-
-fn peek(scanner: *Scanner) u8 {
-    if (scanner.isAtEnd()) return 0;
-    return scanner.source[scanner.current];
-}
-fn peekNext(scanner: *Scanner) ?u8 {
-    if (scanner.current + 1 >= scanner.source.len) return null;
-    return scanner.source[scanner.current + 1];
-}
-
-fn isAtEnd(scanner: *Scanner) bool {
-    return scanner.current >= scanner.source.len;
-}
-
-fn skipWhitespace(scanner: *Scanner) void {
+fn readString(self: *Self) []const u8 {
+    const position = self.position + 1;
     while (true) {
-        if (scanner.isAtEnd()) return;
-        const c = scanner.peek();
-        switch (c) {
-            ' ', '\t', '\r' => _ = scanner.advance(),
-            '\n' => {
-                scanner.line += 1;
-                _ = scanner.advance();
-            },
-            '/' => {
-                const next_tok = scanner.peekNext();
-                if (next_tok != null and next_tok.? == '/') {
-                    while (!scanner.isAtEnd() and scanner.peek() != '\n') : (_ = scanner.advance()) {}
-                } else {
-                    return;
+        self.readChar();
+        if (self.ch == '"' or self.ch == 0) {
+            break;
+        }
+        if (self.ch == '\\' and self.peekChar() == '"') {
+            self.readChar();
+        }
+        if (self.ch == '\n') {
+            self.line += 1;
+        }
+    }
+    const str = self.input[position..self.position];
+    if (self.ch != 0) {
+        self.readChar(); 
+    }
+    return str;
+}
+
+fn readNumber(self: *Self) Token {
+    const position = self.position;
+    while (std.ascii.isDigit(self.ch) or self.ch == '.') {
+        if (self.ch == '.') {
+            if (!std.ascii.isDigit(self.peekChar())) break;
+        }
+        self.readChar();
+    }
+    
+    return Token{
+        .Type =  .TOKEN_NUMBER,
+        .Literal = self.input[position..self.position],
+        .line = self.line,
+    };
+}
+
+fn isLetter(ch: u8) bool {
+    return std.ascii.isAlphabetic(ch) or ch == '_';
+}
+
+fn skipWhiteSpace(self: *Self) void {
+    while (std.ascii.isWhitespace(self.ch)) {
+        if (self.ch == '\n') {
+            self.line += 1;
+        }
+        self.readChar();
+    }
+}
+
+pub fn nextToken(self: *Self) Token {
+    var tok = Token{
+        .Literal = undefined,
+        .Type = undefined,
+        .line = self.line,
+    };
+
+    self.skipWhiteSpace();
+
+    switch (self.ch) {
+        '=' => {
+            if (self.peekChar() == '=') {
+                self.readChar();
+                tok.Type = .TOKEN_EQUAL_EQUAL;
+                tok.Literal = "==";
+            } else {
+                tok.Type = .TOKEN_EQUAL;
+                tok.Literal = "=";
+            }
+        },
+        '"' => {
+            tok.Type = .TOKEN_STRING;
+            tok.Literal = self.readString();
+        },
+        ';' => {
+            tok.Type = .TOKEN_SEMICOLON;
+            tok.Literal = ";";
+        },
+        '(' => {
+            tok.Type = .TOKEN_LEFT_PAREN;
+            tok.Literal = "(";
+        },
+        ')' => {
+            tok.Type = .TOKEN_RIGHT_PAREN;
+            tok.Literal = ")";
+        },
+        ',' => {
+            tok.Type = .TOKEN_COMMA;
+            tok.Literal = ",";
+        },
+        '+' => {
+            tok.Type = .TOKEN_PLUS;
+            tok.Literal = "+";
+        },
+        '{' => {
+            tok.Type = .TOKEN_LEFT_BRACE;
+            tok.Literal = "{";
+        },
+        '}' => {
+            tok.Type = .TOKEN_RIGHT_BRACE;
+            tok.Literal = "}";
+        },
+        '-' => {
+            tok.Type = .TOKEN_MINUS;
+            tok.Literal = "-";
+        },
+        '!' => {
+            if (self.peekChar() == '=') {
+                self.readChar();
+                tok.Type = .TOKEN_BANG_EQUAL;
+                tok.Literal = "!=";
+            } else {
+                tok.Type = .TOKEN_BANG;
+                tok.Literal = "!";
+            }
+        },
+        '/' => {
+            if (self.peekChar() == '/') {
+                self.readChar();
+                const position = self.position + 1;
+                while (self.ch != '\n' and self.ch != 0) {
+                    self.readChar();
                 }
-            },
-            else => return,
-        }
-    }
-}
-
-fn string(scanner: *Scanner) Token {
-    while (!scanner.isAtEnd() and scanner.peek() != '"') : (_ = scanner.advance()) {
-        if (scanner.peek() == '\n') {
-            scanner.line += 1;
-        }
-    }
-    if (scanner.isAtEnd()) {
-        return scanner.errorToken("Unterminated string.");
-    }
-    _ = scanner.advance();
-    return scanner.makeToken(.string);
-}
-
-fn number(scanner: *Scanner) Token {
-    while (isDigit(scanner.peek())) : (_ = scanner.advance()) {}
-
-    if (scanner.peek() == '.' and isDigit(scanner.peekNext() orelse 'a')) {
-        _ = scanner.advance();
-
-        while (isDigit(scanner.peek())) : (_ = scanner.advance()) {}
-    }
-    return scanner.makeToken(.number);
-}
-
-fn identifier(scanner: *Scanner) Token {
-    while (isAlpha(scanner.peek()) or isDigit(scanner.peek())) : (_ = scanner.advance()) {}
-    return scanner.makeToken(scanner.identifierType());
-}
-fn identifierType(scanner: *Scanner) TokenType {
-    return switch (scanner.source[scanner.start]) {
-        'a' => scanner.checkKeyword(1, "nd", .@"and"),
-        'c' => scanner.checkKeyword(1, "lass", .class),
-        'e' => scanner.checkKeyword(1, "lse", .@"else"),
-        'f' => {
-            if (scanner.current - scanner.start > 1) {
-                return switch (scanner.source[scanner.start + 1]) {
-                    'a' => scanner.checkKeyword(2, "lse", .false),
-                    'o' => scanner.checkKeyword(2, "r", .@"for"),
-                    'u' => scanner.checkKeyword(2, "n", .fun),
-                    else => .identifier,
-                };
+                tok.Type = .TOKEN_COMMENT;
+                tok.Literal = self.input[position..self.position];
+                return tok;
+            } else {
+                tok.Type = .TOKEN_SLASH;
+                tok.Literal = "/";
             }
-            return .identifier;
         },
-        'i' => scanner.checkKeyword(1, "f", .@"if"),
-        'n' => scanner.checkKeyword(1, "il", .nil),
-        'o' => scanner.checkKeyword(1, "r", .@"or"),
-        'p' => scanner.checkKeyword(1, "rint", .print),
-        'r' => scanner.checkKeyword(1, "eturn", .@"return"),
-        's' => scanner.checkKeyword(1, "uper", .super),
-        't' => {
-            if (scanner.current - scanner.start > 1) {
-                return switch (scanner.source[scanner.start + 1]) {
-                    'h' => scanner.checkKeyword(2, "is", .this),
-                    'r' => scanner.checkKeyword(2, "ue", .true),
-                    else => .identifier,
-                };
+        '*' => {
+            tok.Type = .TOKEN_STAR;
+            tok.Literal = "*";
+        },
+        '<' => {
+            if (self.peekChar() == '=') {
+                self.readChar();
+                tok.Type = .TOKEN_LESS_EQUAL;
+                tok.Literal = "<=";
+            } else {
+                tok.Type = .TOKEN_LESS;
+                tok.Literal = "<";
             }
-            return .identifier;
         },
-        'v' => scanner.checkKeyword(1, "ar", .@"var"),
-        'w' => scanner.checkKeyword(1, "hile", .@"while"),
-        else => .identifier,
-    };
-}
-
-fn checkKeyword(scanner: *Scanner, start: usize, rest: []const u8, tag: TokenType) TokenType {
-    const total_len = start + rest.len;
-    if (scanner.current - scanner.start == total_len and
-        std.mem.eql(u8, scanner.source[scanner.start + start .. scanner.start + total_len], rest))
-    {
-        return tag;
+        '>' => {
+            if (self.peekChar() == '=') {
+                self.readChar();
+                tok.Type = .TOKEN_GREATER_EQUAL;
+                tok.Literal = ">=";
+            } else {
+                tok.Type = .TOKEN_GREATER;
+                tok.Literal = ">";
+            }
+        },
+        0 => {
+            tok.Literal = "";
+            tok.Type = .TOKEN_EOF;
+        },
+        else => {
+            if (isLetter(self.ch)) {
+                tok.Literal = self.readIdentifier();
+                tok.Type = getKeyword(tok.Literal);
+                return tok;
+            } else if (std.ascii.isDigit(self.ch)) {
+                return self.readNumber();
+            } else {
+                tok.Type = .TOKEN_ERROR;
+                tok.Literal = &[_]u8{self.ch};
+            }
+        },
     }
-    return .identifier;
-}
-
-test "checkKeyword" {
-    var scanner = Scanner{ .source = 
-    \\print
-    \\and
-    \\super
-    \\false
-    \\
-    };
-    scanner.current = 5;
-    try std.testing.expectEqual(.print, scanner.checkKeyword(1, "rint", .print));
-
-    scanner.start = 6;
-    scanner.current = 9;
-    try std.testing.expectEqual(.@"and", scanner.checkKeyword(1, "nd", .@"and"));
-
-    scanner.start = 10;
-    scanner.current = 15;
-    try std.testing.expectEqual(.super, scanner.checkKeyword(1, "uper", .super));
-
-    scanner.start = 16;
-    scanner.current = 21;
-    try std.testing.expectEqual(.false, scanner.checkKeyword(2, "lse", .false));
-}
-
-test "Tokens" {
-    const source =
-        \\(){};,.-+*/! != = == < <= > >=
-        \\"test"
-        \\"multi
-        \\line
-        \\test"
-        \\10 3.14
-        \\pi
-        \\return print
-        \\
-    ;
-
-    var scanner = Scanner{ .source = source };
-    const expected = [_]TokenType{ .left_paren, .right_paren, .left_brace, .right_brace, .semicolon, .comma, .dot, .minus, .plus, .star, .slash, .bang, .bang_equal, .equal, .equal_equal, .less, .less_equal, .greater, .greater_equal };
-
-    for (expected) |tag| {
-        const tok = scanner.next();
-        try std.testing.expectEqual(tag, tok.?.tag);
-    }
-    const str = scanner.next();
-    try std.testing.expectEqualDeep(Token{
-        .line = 2,
-        .raw =
-        \\"test"
-        ,
-        .tag = .string,
-    }, str.?);
-    const multiline_string = scanner.next();
-    try std.testing.expectEqualDeep(Token{
-        .line = 5,
-        .raw =
-        \\"multi
-        \\line
-        \\test"
-        ,
-        .tag = .string,
-    }, multiline_string.?);
-
-    const ten = scanner.next();
-    try std.testing.expectEqual(.number, ten.?.tag);
-    try std.testing.expectEqual(10, try std.fmt.parseInt(usize, ten.?.raw, 10));
-
-    const pi = scanner.next();
-    try std.testing.expectEqual(.number, pi.?.tag);
-    try std.testing.expectEqual(3.14, try std.fmt.parseFloat(f32, pi.?.raw));
-
-    const pi_var = scanner.next();
-    try std.testing.expectEqual(.identifier, pi_var.?.tag);
-    try std.testing.expectEqualSlices(u8, "pi", pi_var.?.raw);
-    const ret = scanner.next();
-    try std.testing.expectEqual(.@"return", ret.?.tag);
-    const print = scanner.next();
-    try std.testing.expectEqual(.print, print.?.tag);
+    self.readChar();
+    return tok;
 }

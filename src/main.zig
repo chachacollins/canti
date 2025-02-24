@@ -49,7 +49,7 @@ pub fn main() !void {
     var arena_allocator = std.heap.ArenaAllocator.init(gpa_allocator);
     defer arena_allocator.deinit();
     const allocator = arena_allocator.allocator();
-    try vm.init(allocator, false);
+    try vm.init(allocator, true);
     defer vm.deinit();
     const args = try std.process.argsAlloc(allocator);
     defer std.process.argsFree(allocator, args);

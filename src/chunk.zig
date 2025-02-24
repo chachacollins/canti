@@ -33,7 +33,7 @@ pub fn addConstant(self: *Self, value: V.Value) !usize {
     return self.constants.values.items.len - 1;
 }
 pub fn writeChunk(self: *Self, byte: u8, line: usize) !void {
-    _ = line;
+    try self.lines.append(line);
     try self.code.append(byte);
 }
 pub fn writeConstant(self: *Self, value: V.Value, line: usize) !void {
