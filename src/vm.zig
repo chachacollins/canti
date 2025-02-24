@@ -22,7 +22,7 @@ stream: std.ArrayList(u8),
 ip: usize,
 debug: bool,
 allocator: std.mem.Allocator,
-stack: [STACK_MAX]V.Value,
+stack: [65000]V.Value,
 stack_top: usize,
 
 var vm: Self = undefined;
@@ -35,8 +35,15 @@ pub fn init(allocator: std.mem.Allocator, debug: bool) !void {
 pub fn deinit() void {}
 
 pub fn interpret(source: []const u8) !InterpretResult {
-    try Compiler.compile(source, vm.allocator);
-    return InterpretResult.INTERPRET_OK;
+    var comp_ret = try Compiler.compile(source, vm.allocator);
+    if (!comp_ret.success) {
+        return InterpretResult.INTERPRET_COMPILE_ERROR;
+    }
+    vm.chunk = &comp_ret.chunk;
+    vm.ip = 0;
+    vm.stream = comp_ret.chunk.code;
+    const result = try run();
+    return result;
 }
 fn run() !InterpretResult {
     while (true) {

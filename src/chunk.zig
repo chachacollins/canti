@@ -15,7 +15,7 @@ pub const Op_Code = enum(u8) {
 
 code: std.ArrayList(u8),
 constants: V.ValueArray,
-lines: std.ArrayList(i32),
+lines: std.ArrayList(usize),
 allocator: std.mem.Allocator,
 
 pub fn init(allocator: std.mem.Allocator) Self {
@@ -23,7 +23,7 @@ pub fn init(allocator: std.mem.Allocator) Self {
         //xls
         .code = std.ArrayList(u8).init(allocator),
         .constants = V.ValueArray.init(allocator),
-        .lines = std.ArrayList(i32).init(allocator),
+        .lines = std.ArrayList(usize).init(allocator),
         .allocator = allocator,
     };
     return chunk;
@@ -32,11 +32,11 @@ pub fn addConstant(self: *Self, value: V.Value) !usize {
     try self.constants.writeValue(value);
     return self.constants.values.items.len - 1;
 }
-pub fn writeChunk(self: *Self, byte: u8, line: i32) !void {
-    try self.lines.append(line);
+pub fn writeChunk(self: *Self, byte: u8, line: usize) !void {
+    _ = line;
     try self.code.append(byte);
 }
-pub fn writeConstant(self: *Self, value: V.Value, line: i32) !void {
+pub fn writeConstant(self: *Self, value: V.Value, line: usize) !void {
     const constant = try self.addConstant(value);
     if (constant <= 255) {
         try self.writeChunk(@intFromEnum(Op_Code.OP_CONSTANT), line);
