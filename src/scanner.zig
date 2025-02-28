@@ -5,12 +5,12 @@ input: []const u8,
 position: usize,
 readPosition: usize,
 ch: u8,
-line: usize, 
+line: usize,
 
 pub const Token = struct {
-    Literal: []const u8,
-    Type: TokenType,
-    line: usize,  
+    literal: []const u8,
+    type: TokenType,
+    line: usize,
 };
 
 fn getKeyword(literal: []const u8) TokenType {
@@ -64,7 +64,7 @@ pub const TokenType = enum {
     TOKEN_IDENTIFIER,
     TOKEN_STRING,
     TOKEN_NUMBER,
-    TOKEN_FLOAT,  // Added float token type
+    TOKEN_FLOAT, // Added float token type
     // Keywords.
     TOKEN_AND,
     TOKEN_CLASS,
@@ -141,7 +141,7 @@ fn readString(self: *Self) []const u8 {
     }
     const str = self.input[position..self.position];
     if (self.ch != 0) {
-        self.readChar(); 
+        self.readChar();
     }
     return str;
 }
@@ -154,10 +154,10 @@ fn readNumber(self: *Self) Token {
         }
         self.readChar();
     }
-    
+
     return Token{
-        .Type =  .TOKEN_NUMBER,
-        .Literal = self.input[position..self.position],
+        .type = .TOKEN_NUMBER,
+        .literal = self.input[position..self.position],
         .line = self.line,
     };
 }
@@ -177,8 +177,8 @@ fn skipWhiteSpace(self: *Self) void {
 
 pub fn nextToken(self: *Self) Token {
     var tok = Token{
-        .Literal = undefined,
-        .Type = undefined,
+        .literal = undefined,
+        .type = undefined,
         .line = self.line,
     };
 
@@ -188,57 +188,57 @@ pub fn nextToken(self: *Self) Token {
         '=' => {
             if (self.peekChar() == '=') {
                 self.readChar();
-                tok.Type = .TOKEN_EQUAL_EQUAL;
-                tok.Literal = "==";
+                tok.type = .TOKEN_EQUAL_EQUAL;
+                tok.literal = "==";
             } else {
-                tok.Type = .TOKEN_EQUAL;
-                tok.Literal = "=";
+                tok.type = .TOKEN_EQUAL;
+                tok.literal = "=";
             }
         },
         '"' => {
-            tok.Type = .TOKEN_STRING;
-            tok.Literal = self.readString();
+            tok.type = .TOKEN_STRING;
+            tok.literal = self.readString();
         },
         ';' => {
-            tok.Type = .TOKEN_SEMICOLON;
-            tok.Literal = ";";
+            tok.type = .TOKEN_SEMICOLON;
+            tok.literal = ";";
         },
         '(' => {
-            tok.Type = .TOKEN_LEFT_PAREN;
-            tok.Literal = "(";
+            tok.type = .TOKEN_LEFT_PAREN;
+            tok.literal = "(";
         },
         ')' => {
-            tok.Type = .TOKEN_RIGHT_PAREN;
-            tok.Literal = ")";
+            tok.type = .TOKEN_RIGHT_PAREN;
+            tok.literal = ")";
         },
         ',' => {
-            tok.Type = .TOKEN_COMMA;
-            tok.Literal = ",";
+            tok.type = .TOKEN_COMMA;
+            tok.literal = ",";
         },
         '+' => {
-            tok.Type = .TOKEN_PLUS;
-            tok.Literal = "+";
+            tok.type = .TOKEN_PLUS;
+            tok.literal = "+";
         },
         '{' => {
-            tok.Type = .TOKEN_LEFT_BRACE;
-            tok.Literal = "{";
+            tok.type = .TOKEN_LEFT_BRACE;
+            tok.literal = "{";
         },
         '}' => {
-            tok.Type = .TOKEN_RIGHT_BRACE;
-            tok.Literal = "}";
+            tok.type = .TOKEN_RIGHT_BRACE;
+            tok.literal = "}";
         },
         '-' => {
-            tok.Type = .TOKEN_MINUS;
-            tok.Literal = "-";
+            tok.type = .TOKEN_MINUS;
+            tok.literal = "-";
         },
         '!' => {
             if (self.peekChar() == '=') {
                 self.readChar();
-                tok.Type = .TOKEN_BANG_EQUAL;
-                tok.Literal = "!=";
+                tok.type = .TOKEN_BANG_EQUAL;
+                tok.literal = "!=";
             } else {
-                tok.Type = .TOKEN_BANG;
-                tok.Literal = "!";
+                tok.type = .TOKEN_BANG;
+                tok.literal = "!";
             }
         },
         '/' => {
@@ -248,52 +248,52 @@ pub fn nextToken(self: *Self) Token {
                 while (self.ch != '\n' and self.ch != 0) {
                     self.readChar();
                 }
-                tok.Type = .TOKEN_COMMENT;
-                tok.Literal = self.input[position..self.position];
+                tok.type = .TOKEN_COMMENT;
+                tok.literal = self.input[position..self.position];
                 return tok;
             } else {
-                tok.Type = .TOKEN_SLASH;
-                tok.Literal = "/";
+                tok.type = .TOKEN_SLASH;
+                tok.literal = "/";
             }
         },
         '*' => {
-            tok.Type = .TOKEN_STAR;
-            tok.Literal = "*";
+            tok.type = .TOKEN_STAR;
+            tok.literal = "*";
         },
         '<' => {
             if (self.peekChar() == '=') {
                 self.readChar();
-                tok.Type = .TOKEN_LESS_EQUAL;
-                tok.Literal = "<=";
+                tok.type = .TOKEN_LESS_EQUAL;
+                tok.literal = "<=";
             } else {
-                tok.Type = .TOKEN_LESS;
-                tok.Literal = "<";
+                tok.type = .TOKEN_LESS;
+                tok.literal = "<";
             }
         },
         '>' => {
             if (self.peekChar() == '=') {
                 self.readChar();
-                tok.Type = .TOKEN_GREATER_EQUAL;
-                tok.Literal = ">=";
+                tok.type = .TOKEN_GREATER_EQUAL;
+                tok.literal = ">=";
             } else {
-                tok.Type = .TOKEN_GREATER;
-                tok.Literal = ">";
+                tok.type = .TOKEN_GREATER;
+                tok.literal = ">";
             }
         },
         0 => {
-            tok.Literal = "";
-            tok.Type = .TOKEN_EOF;
+            tok.literal = "";
+            tok.type = .TOKEN_EOF;
         },
         else => {
             if (isLetter(self.ch)) {
-                tok.Literal = self.readIdentifier();
-                tok.Type = getKeyword(tok.Literal);
+                tok.literal = self.readIdentifier();
+                tok.type = getKeyword(tok.literal);
                 return tok;
             } else if (std.ascii.isDigit(self.ch)) {
                 return self.readNumber();
             } else {
-                tok.Type = .TOKEN_ERROR;
-                tok.Literal = &[_]u8{self.ch};
+                tok.type = .TOKEN_ERROR;
+                tok.literal = &[_]u8{self.ch};
             }
         },
     }

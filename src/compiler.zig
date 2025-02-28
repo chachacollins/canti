@@ -2,6 +2,7 @@ const std = @import("std");
 const Scanner = @import("scanner.zig");
 const Chunk = @import("chunk.zig");
 const Value = @import("value.zig");
+const Debug = @import("debug.zig");
 
 const stdout_file = std.io.getStdOut().writer();
 var bw = std.io.bufferedWriter(stdout_file);
@@ -84,10 +85,10 @@ fn errorAt(token: *Scanner.Token, message: []const u8) void {
     if (parser.panic_mode) return;
     parser.panic_mode = true;
     std.debug.print("[lined {d}] Error", .{token.line});
-    if (token.Type == .TOKEN_EOF) {
+    if (token.type == .TOKEN_EOF) {
         std.debug.print("  at end", .{});
-    } else if (token.Type == .TOKEN_ERROR) {} else {
-        std.debug.print(" at {s}", .{token.Literal});
+    } else if (token.type == .TOKEN_ERROR) {} else {
+        std.debug.print(" at {s}", .{token.literal});
     }
     std.debug.print(": {s}\n", .{message});
     parser.had_error = true;
@@ -98,13 +99,13 @@ fn advance() void {
 
     while (true) {
         parser.current = parser.scanner.nextToken();
-        if (parser.current.?.Type != .TOKEN_ERROR) break;
-        errorAtCurrent(parser.current.?.Literal);
+        if (parser.current.?.type != .TOKEN_ERROR) break;
+        errorAtCurrent(parser.current.?.literal);
     }
 }
 
 fn consume(type_: Scanner.TokenType, message: []const u8) void {
-    if (parser.current.?.Type == type_) {
+    if (parser.current.?.type == type_) {
         advance();
         return;
     }
@@ -122,7 +123,11 @@ fn emitBytes(byte1: u8, byte2: u8) void {
 fn emitReturn() void {
     emitByte(@intFromEnum(Chunk.Op_Code.OP_RETURN));
 }
-fn endCompiler() void {
+fn endCompiler() !void {
+    if (parser.had_error) {
+        _ = try Debug.disassembleChunk(compiling_chunk, "chunk");
+    }
+
     emitReturn();
 }
 
@@ -135,14 +140,14 @@ fn emitConstant(value: Value.Value) !void {
 }
 
 fn number() !void {
-    const value = std.fmt.parseFloat(Value.Value, parser.previous.?.Literal) catch unreachable;
+    const value = std.fmt.parseFloat(Value.Value, parser.previous.?.literal) catch unreachable;
     try emitConstant(value);
 }
 
 fn parsePrecedence(precedence: Precedence) !void {
     advance();
-    const prefix_rule = getRule(parser.previous.?.Type).prefix;
-    std.debug.print("{}\n", .{parser.previous.?.Type});
+    const prefix_rule = getRule(parser.previous.?.type).prefix;
+    std.debug.print("{}\n", .{parser.previous.?.type});
     if (prefix_rule == null) {
         error_("Expected expression");
         return;
@@ -150,9 +155,9 @@ fn parsePrecedence(precedence: Precedence) !void {
 
     const prefix = prefix_rule.?;
     try prefix();
-    while (@intFromEnum(precedence) < @intFromEnum(getRule(parser.current.?.Type).precedence)) {
+    while (@intFromEnum(precedence) < @intFromEnum(getRule(parser.current.?.type).precedence)) {
         advance();
-        const infix_rule = getRule(parser.previous.?.Type).infix.?;
+        const infix_rule = getRule(parser.previous.?.type).infix.?;
         try infix_rule();
     }
 }
@@ -163,29 +168,29 @@ fn expression() !void {
 
 fn grouping() !void {
     try expression();
-    std.debug.print("{}\n", .{parser.current.?.Type});
-    std.debug.print("{s}\n", .{parser.current.?.Literal});
+    std.debug.print("{}\n", .{parser.current.?.type});
+    std.debug.print("{s}\n", .{parser.current.?.literal});
     consume(.TOKEN_RIGHT_PAREN, "Expected ')' after the expression.");
 }
 
 fn unary() !void {
-    const operator_Type = parser.previous.?.Type;
+    const operator_type = parser.previous.?.type;
     try parsePrecedence(.PREC_UNARY);
 
-    switch (operator_Type) {
+    switch (operator_type) {
         .TOKEN_MINUS => emitByte(@intFromEnum(Chunk.Op_Code.OP_NEGATE)),
         else => unreachable,
     }
 }
 
 fn binary() !void {
-    const operator_Type = parser.previous.?.Type;
+    const operator_type = parser.previous.?.type;
 
-    const rule = getRule(operator_Type);
+    const rule = getRule(operator_type);
 
     try parsePrecedence(rule.precedence.increment());
 
-    switch (operator_Type) {
+    switch (operator_type) {
         .TOKEN_PLUS => emitByte(@intFromEnum(Chunk.Op_Code.OP_ADD)),
         .TOKEN_MINUS => emitByte(@intFromEnum(Chunk.Op_Code.OP_SUBTRACT)),
         .TOKEN_STAR => emitByte(@intFromEnum(Chunk.Op_Code.OP_MULTIPLY)),
@@ -206,7 +211,7 @@ pub fn compile(source: []const u8, allocator: std.mem.Allocator) !CompilerReturn
     try expression();
 
     consume(.TOKEN_EOF, "Expected end of expression");
-    endCompiler();
+    try endCompiler();
     comp_ret.success = !parser.had_error;
     comp_ret.chunk = compiling_chunk;
     return comp_ret;
