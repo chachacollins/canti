@@ -22,6 +22,7 @@ const CompilerReturns = struct {
 };
 
 const Parser = struct {
+
     //zls
     previous: ?Scanner.Token,
     current: ?Scanner.Token,
