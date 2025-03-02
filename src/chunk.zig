@@ -42,7 +42,7 @@ pub fn writeConstant(self: *Self, value: V.Value, line: usize) !void {
         try self.writeChunk(@intFromEnum(Op_Code.OP_CONSTANT), line);
         try self.writeChunk(@intCast(constant), line);
     } else {
-        const largest = 0;
+        const largest: u24 = 0;
         std.debug.assert(constant <= ~largest);
         const high_byte = constant >> 16 & 0xFF;
         const mid_byte = constant >> 8 & 0xFF;
