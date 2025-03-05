@@ -24,8 +24,8 @@ const CompilerReturns = struct {
 const Parser = struct {
 
     //zls
-    previous: ?Scanner.Token,
-    current: ?Scanner.Token,
+    previous: Scanner.Token,
+    current: Scanner.Token,
     had_error: bool,
     panic_mode: bool,
     scanner: Scanner,
@@ -87,10 +87,10 @@ fn getRule(tag: Scanner.TokenType) ParseRule {
 }
 
 fn errorAtCurrent(message: []const u8) void {
-    errorAt(&parser.current.?, message);
+    errorAt(&parser.current, message);
 }
 fn error_(message: []const u8) void {
-    errorAt(&parser.previous.?, message);
+    errorAt(&parser.previous, message);
 }
 
 fn errorAt(token: *Scanner.Token, message: []const u8) void {
@@ -111,13 +111,13 @@ fn advance() void {
 
     while (true) {
         parser.current = parser.scanner.nextToken();
-        if (parser.current.?.type != .TOKEN_ERROR) break;
-        errorAtCurrent(parser.current.?.literal);
+        if (parser.current.type != .TOKEN_ERROR) break;
+        errorAtCurrent(parser.current.literal);
     }
 }
 
 fn consume(type_: Scanner.TokenType, message: []const u8) void {
-    if (parser.current.?.type == type_) {
+    if (parser.current.type == type_) {
         advance();
         return;
     }
@@ -125,7 +125,7 @@ fn consume(type_: Scanner.TokenType, message: []const u8) void {
 }
 
 fn emitByte(byte: u8) void {
-    compiling_chunk.writeChunk(byte, parser.previous.?.line) catch unreachable;
+    compiling_chunk.writeChunk(byte, parser.previous.line) catch unreachable;
 }
 fn emitBytes(byte1: u8, byte2: u8) void {
     emitByte(byte1);
@@ -144,7 +144,7 @@ fn endCompiler() !void {
 }
 
 fn makeConstant(value: Value.Value) !void {
-    try compiling_chunk.writeConstant(value, parser.previous.?.line);
+    try compiling_chunk.writeConstant(value, parser.previous.line);
 }
 
 fn emitConstant(value: Value.Value) !void {
@@ -152,13 +152,13 @@ fn emitConstant(value: Value.Value) !void {
 }
 
 fn number() !void {
-    const value = std.fmt.parseFloat(f64, parser.previous.?.literal) catch unreachable;
+    const value = std.fmt.parseFloat(f64, parser.previous.literal) catch unreachable;
     try emitConstant(Value.number_value(value));
 }
 
 fn parsePrecedence(precedence: Precedence) !void {
     advance();
-    const prefix_rule = getRule(parser.previous.?.type).prefix;
+    const prefix_rule = getRule(parser.previous.type).prefix;
     if (prefix_rule == null) {
         error_("Expected expression");
         return;
@@ -166,9 +166,9 @@ fn parsePrecedence(precedence: Precedence) !void {
 
     const prefix = prefix_rule.?;
     try prefix();
-    while (@intFromEnum(precedence) < @intFromEnum(getRule(parser.current.?.type).precedence)) {
+    while (@intFromEnum(precedence) < @intFromEnum(getRule(parser.current.type).precedence)) {
         advance();
-        const infix_rule = getRule(parser.previous.?.type).infix.?;
+        const infix_rule = getRule(parser.previous.type).infix.?;
         try infix_rule();
     }
 }
@@ -183,7 +183,7 @@ fn grouping() !void {
 }
 
 fn unary() !void {
-    const operator_type = parser.previous.?.type;
+    const operator_type = parser.previous.type;
     try parsePrecedence(.PREC_UNARY);
 
     switch (operator_type) {
@@ -194,7 +194,7 @@ fn unary() !void {
 }
 
 fn binary() !void {
-    const operator_type = parser.previous.?.type;
+    const operator_type = parser.previous.type;
 
     const rule = getRule(operator_type);
 
@@ -216,7 +216,7 @@ fn binary() !void {
 }
 
 fn literal() !void {
-    switch (parser.previous.?.type) {
+    switch (parser.previous.type) {
         .TOKEN_FALSE => emitByte(@intFromEnum(Chunk.Op_Code.OP_FALSE)),
         .TOKEN_TRUE => emitByte(@intFromEnum(Chunk.Op_Code.OP_TRUE)),
         .TOKEN_NIL => emitByte(@intFromEnum(Chunk.Op_Code.OP_NIL)),
