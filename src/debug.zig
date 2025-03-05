@@ -63,6 +63,15 @@ pub fn disassembleInstruction(chunk: Chunk, offset: usize) !usize {
         @intFromEnum(Chunk.Op_Code.OP_EQUAL) => {
             return simpleInstruction("OP_EQUAL", offset);
         },
+        @intFromEnum(Chunk.Op_Code.OP_GREATER_EQUAL) => {
+            return simpleInstruction("OP_GREATER_EQUAL", offset);
+        },
+        @intFromEnum(Chunk.Op_Code.OP_LESS_EQUAL) => {
+            return simpleInstruction("OP_LESS_EQUAL", offset);
+        },
+        @intFromEnum(Chunk.Op_Code.OP_BANG_EQUAL) => {
+            return simpleInstruction("OP_BANG_EQUAL", offset);
+        },
         @intFromEnum(Chunk.Op_Code.OP_RETURN) => {
             return simpleInstruction("OP_RETURN", offset);
         },

@@ -130,6 +130,20 @@ fn run() !InterpretResult {
             @intFromEnum(Chunk.Op_Code.OP_LESS) => {
                 binaryOp('<');
             },
+            @intFromEnum(Chunk.Op_Code.OP_LESS_EQUAL) => {
+                binaryOp('>');
+                stackPush(V.bool_value(isFalsey(stackPop())));
+            },
+            @intFromEnum(Chunk.Op_Code.OP_GREATER_EQUAL) => {
+                binaryOp('<');
+                stackPush(V.bool_value(isFalsey(stackPop())));
+            },
+            @intFromEnum(Chunk.Op_Code.OP_BANG_EQUAL) => {
+                const b = stackPop();
+                const a = stackPop();
+                stackPush(V.bool_value(V.valuesEqual(a, b)));
+                stackPush(V.bool_value(isFalsey(stackPop())));
+            },
             @intFromEnum(Chunk.Op_Code.OP_RETURN) => {
                 try V.printValue(stackPop(), stdout);
                 try stdout.print("\n", .{});
