@@ -96,7 +96,7 @@ fn error_(message: []const u8) void {
 fn errorAt(token: *Scanner.Token, message: []const u8) void {
     if (parser.panic_mode) return;
     parser.panic_mode = true;
-    std.debug.print("[lined {d}] Error", .{token.line});
+    std.debug.print("[line: {d}] Error", .{token.line});
     if (token.type == .TOKEN_EOF) {
         std.debug.print("  at end", .{});
     } else if (token.type == .TOKEN_ERROR) {} else {
