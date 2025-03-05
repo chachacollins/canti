@@ -73,19 +73,62 @@ fn run() !InterpretResult {
                 stackPush(constant);
             },
             @intFromEnum(Chunk.Op_Code.OP_ADD) => {
+                if (!V.is_number(peek(1)) or !V.is_number(peek(0))) {
+                    runtimeError("Operands must be numbers", .{});
+                    return InterpretResult.INTERPRET_RUNTIME_ERROR;
+                }
                 binaryOp('+');
             },
             @intFromEnum(Chunk.Op_Code.OP_SUBTRACT) => {
+                if (!V.is_number(peek(1)) or !V.is_number(peek(0))) {
+                    runtimeError("Operands must be numbers", .{});
+                    return InterpretResult.INTERPRET_RUNTIME_ERROR;
+                }
                 binaryOp('-');
             },
             @intFromEnum(Chunk.Op_Code.OP_DIVIDE) => {
+                if (!V.is_number(peek(1)) or !V.is_number(peek(0))) {
+                    runtimeError("Operands must be numbers", .{});
+                    return InterpretResult.INTERPRET_RUNTIME_ERROR;
+                }
                 binaryOp('/');
             },
             @intFromEnum(Chunk.Op_Code.OP_MULTIPLY) => {
+                if (!V.is_number(peek(1)) or !V.is_number(peek(0))) {
+                    runtimeError("Operands must be numbers", .{});
+                    return InterpretResult.INTERPRET_RUNTIME_ERROR;
+                }
                 binaryOp('*');
             },
             @intFromEnum(Chunk.Op_Code.OP_NEGATE) => {
-                stackPush(-stackPop());
+                if (!V.is_number(peek(0))) {
+                    runtimeError("Operand must be a number", .{});
+                    return InterpretResult.INTERPRET_RUNTIME_ERROR;
+                }
+                stackPush(V.number_value(-V.as_number(stackPop())));
+            },
+            @intFromEnum(Chunk.Op_Code.OP_NIL) => {
+                stackPush(V.nill_value());
+            },
+            @intFromEnum(Chunk.Op_Code.OP_FALSE) => {
+                stackPush(V.bool_value(false));
+            },
+            @intFromEnum(Chunk.Op_Code.OP_TRUE) => {
+                stackPush(V.bool_value(true));
+            },
+            @intFromEnum(Chunk.Op_Code.OP_NOT) => {
+                stackPush(V.bool_value(isFalsey(stackPop())));
+            },
+            @intFromEnum(Chunk.Op_Code.OP_EQUAL) => {
+                const b = stackPop();
+                const a = stackPop();
+                stackPush(V.bool_value(V.valuesEqual(a, b)));
+            },
+            @intFromEnum(Chunk.Op_Code.OP_GREATER) => {
+                binaryOp('>');
+            },
+            @intFromEnum(Chunk.Op_Code.OP_LESS) => {
+                binaryOp('<');
             },
             @intFromEnum(Chunk.Op_Code.OP_RETURN) => {
                 try V.printValue(stackPop(), stdout);
@@ -128,13 +171,29 @@ fn stackPop() V.Value {
 }
 
 fn binaryOp(op: u8) void {
-    const b = stackPop();
-    const a = stackPop();
+    const b = V.as_number(stackPop());
+    const a = V.as_number(stackPop());
     switch (op) {
-        '-' => stackPush(a - b),
-        '+' => stackPush(a + b),
-        '/' => stackPush(a / b),
-        '*' => stackPush(a * b),
+        '-' => stackPush(V.number_value(a - b)),
+        '+' => stackPush(V.number_value(a + b)),
+        '/' => stackPush(V.number_value(a / b)),
+        '*' => stackPush(V.number_value(a * b)),
+        '<' => stackPush(V.bool_value(a < b)),
+        '>' => stackPush(V.bool_value(a > b)),
         else => {},
     }
+}
+
+fn peek(distance: usize) V.Value {
+    return vm.stack[vm.stack_top - distance - 1];
+}
+
+fn runtimeError(comptime fmt: []const u8, args: anytype) void {
+    std.debug.print(fmt ++ "\n", args);
+    const line = vm.chunk.lines.items[vm.ip];
+    std.debug.print("[line {d}] in script\n", .{line});
+}
+
+fn isFalsey(value: V.Value) bool {
+    return V.is_nil(value) or (V.is_bool(value)) and !V.as_bool(value);
 }

@@ -67,7 +67,18 @@ const rules = blk: {
     map.set(.TOKEN_PLUS, .{ .infix = binary, .precedence = .PREC_TERM });
     map.set(.TOKEN_STAR, .{ .infix = binary, .precedence = .PREC_FACTOR });
     map.set(.TOKEN_SLASH, .{ .infix = binary, .precedence = .PREC_FACTOR });
-    map.set(.TOKEN_NUMBER, ParseRule{ .prefix = number });
+    map.set(.TOKEN_NUMBER, .{ .prefix = number });
+    map.set(.TOKEN_FALSE, .{ .prefix = literal });
+    map.set(.TOKEN_TRUE, .{ .prefix = literal });
+    map.set(.TOKEN_NIL, .{ .prefix = literal });
+    map.set(.TOKEN_BANG, .{ .prefix = unary });
+    map.set(.TOKEN_BANG_EQUAL, .{ .infix = binary, .precedence = .PREC_EQUALITY });
+    map.set(.TOKEN_EQUAL_EQUAL, .{ .infix = binary, .precedence = .PREC_EQUALITY });
+    map.set(.TOKEN_GREATER, .{ .infix = binary, .precedence = .PREC_COMPARISON });
+    map.set(.TOKEN_GREATER_EQUAL, .{ .infix = binary, .precedence = .PREC_COMPARISON });
+    map.set(.TOKEN_LESS_EQUAL, .{ .infix = binary, .precedence = .PREC_COMPARISON });
+    map.set(.TOKEN_LESS, .{ .infix = binary, .precedence = .PREC_COMPARISON });
+
     break :blk map;
 };
 
@@ -141,14 +152,13 @@ fn emitConstant(value: Value.Value) !void {
 }
 
 fn number() !void {
-    const value = std.fmt.parseFloat(Value.Value, parser.previous.?.literal) catch unreachable;
-    try emitConstant(value);
+    const value = std.fmt.parseFloat(f64, parser.previous.?.literal) catch unreachable;
+    try emitConstant(Value.number_value(value));
 }
 
 fn parsePrecedence(precedence: Precedence) !void {
     advance();
     const prefix_rule = getRule(parser.previous.?.type).prefix;
-    std.debug.print("{}\n", .{parser.previous.?.type});
     if (prefix_rule == null) {
         error_("Expected expression");
         return;
@@ -169,8 +179,6 @@ fn expression() !void {
 
 fn grouping() !void {
     try expression();
-    std.debug.print("{}\n", .{parser.current.?.type});
-    std.debug.print("{s}\n", .{parser.current.?.literal});
     consume(.TOKEN_RIGHT_PAREN, "Expected ')' after the expression.");
 }
 
@@ -180,6 +188,7 @@ fn unary() !void {
 
     switch (operator_type) {
         .TOKEN_MINUS => emitByte(@intFromEnum(Chunk.Op_Code.OP_NEGATE)),
+        .TOKEN_BANG => emitByte(@intFromEnum(Chunk.Op_Code.OP_NOT)),
         else => unreachable,
     }
 }
@@ -196,6 +205,21 @@ fn binary() !void {
         .TOKEN_MINUS => emitByte(@intFromEnum(Chunk.Op_Code.OP_SUBTRACT)),
         .TOKEN_STAR => emitByte(@intFromEnum(Chunk.Op_Code.OP_MULTIPLY)),
         .TOKEN_SLASH => emitByte(@intFromEnum(Chunk.Op_Code.OP_DIVIDE)),
+        .TOKEN_BANG_EQUAL => emitBytes(@intFromEnum(Chunk.Op_Code.OP_EQUAL), @intFromEnum(Chunk.Op_Code.OP_NOT)),
+        .TOKEN_GREATER => emitByte(@intFromEnum(Chunk.Op_Code.OP_GREATER)),
+        .TOKEN_GREATER_EQUAL => emitBytes(@intFromEnum(Chunk.Op_Code.OP_LESS), @intFromEnum(Chunk.Op_Code.OP_NOT)),
+        .TOKEN_LESS => emitByte(@intFromEnum(Chunk.Op_Code.OP_LESS)),
+        .TOKEN_LESS_EQUAL => emitBytes(@intFromEnum(Chunk.Op_Code.OP_GREATER), @intFromEnum(Chunk.Op_Code.OP_NOT)),
+        .TOKEN_EQUAL_EQUAL => emitByte(@intFromEnum(Chunk.Op_Code.OP_EQUAL)),
+        else => unreachable,
+    }
+}
+
+fn literal() !void {
+    switch (parser.previous.?.type) {
+        .TOKEN_FALSE => emitByte(@intFromEnum(Chunk.Op_Code.OP_FALSE)),
+        .TOKEN_TRUE => emitByte(@intFromEnum(Chunk.Op_Code.OP_TRUE)),
+        .TOKEN_NIL => emitByte(@intFromEnum(Chunk.Op_Code.OP_NIL)),
         else => unreachable,
     }
 }
