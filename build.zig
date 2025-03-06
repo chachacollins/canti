@@ -44,6 +44,22 @@ pub fn build(b: *std.Build) void {
     // (make sure to rename 'exe_check')
     const check = b.step("check", "Check if canti compiles");
     check.dependOn(&exe_check.step);
+
+    const exe_fast = b.addExecutable(.{
+        .name = "canti",
+        .root_source_file = b.path("src/main.zig"),
+        .target = target,
+        .optimize = .ReleaseFast,
+    });
+
+    // Any other code to define dependencies would
+    // probably be here.
+
+    // These two lines you might want to copy
+    // (make sure to rename 'exe_fast')
+    const fast = b.step("fast", "build a fast release version of canti");
+    fast.dependOn(&exe_fast.step);
+    b.installArtifact(exe_fast);
     // This *creates* a Run step in the build graph, to be executed when another
     // step is evaluated that depends on it. The next line below will establish
     // such a dependency.
