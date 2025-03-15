@@ -1,8 +1,5 @@
 const std = @import("std");
 
-// Although this function looks imperative, note that its job is to
-// declaratively construct a build graph that will be executed by an external
-// runner.
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
 
@@ -19,7 +16,7 @@ pub fn build(b: *std.Build) void {
         .name = "canti",
         .root_source_file = b.path("src/main.zig"),
         .target = target,
-        .optimize = .Debug,
+        .optimize = optimize,
     });
 
     // This declares intent for the executable to be installed into the
@@ -41,21 +38,6 @@ pub fn build(b: *std.Build) void {
     const check = b.step("check", "Check if canti compiles");
     check.dependOn(&exe_check.step);
 
-    const exe_fast = b.addExecutable(.{
-        .name = "canti",
-        .root_source_file = b.path("src/main.zig"),
-        .target = target,
-        .optimize = .ReleaseFast,
-    });
-
-    // Any other code to define dependencies would
-    // probably be here.
-
-    // These two lines you might want to copy
-    // (make sure to rename 'exe_fast')
-    const fast = b.step("fast", "build a fast release version of canti");
-    fast.dependOn(&exe_fast.step);
-    b.installArtifact(exe_fast);
     // This *creates* a Run step in the build graph, to be executed when another
     // step is evaluated that depends on it. The next line below will establish
     // such a dependency.
@@ -73,9 +55,6 @@ pub fn build(b: *std.Build) void {
         run_cmd.addArgs(args);
     }
 
-    // This creates a build step. It will be visible in the `zig build --help` menu,
-    // and can be selected like this: `zig build run`
-    // This will evaluate the `run` step rather than the default, which is "install".
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
 
