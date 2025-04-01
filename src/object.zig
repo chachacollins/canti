@@ -20,7 +20,7 @@ pub inline fn IS_STRING(v: value.Value) bool {
 }
 pub inline fn AS_STRING(v: value.Value) *ObjString {
     std.debug.assert(IS_STRING(v));
-    return @ptrCast(value.as_obj(v));
+    return @alignCast(@fieldParentPtr("obj", v.value.obj));
 }
 pub inline fn AS_CSTRING(v: value.Value) []const u8 {
     return AS_STRING(v).chars;
@@ -33,7 +33,7 @@ const ObjString = struct {
 
 pub fn allocateString(chars: []const u8, allocator: std.mem.Allocator) *ObjString {
     const string = ALLOCATE_OBJ(ObjString, .OBJ_STRING, allocator);
-    string.chars = allocator.dupe(u8, chars) catch undefined;
+    string.chars = chars;
     return string;
 }
 

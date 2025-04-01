@@ -56,7 +56,7 @@ pub fn as_number(value: Value) f64 {
 }
 
 pub fn as_obj(value: Value) object {
-    return value.value.obj;
+    return value.value.obj.*;
 }
 
 pub fn is_number(value: Value) bool {
@@ -105,6 +105,12 @@ pub fn printValue(value: Value, stdout: anytype) !void {
         .VAL_BOOL => try stdout.print("{}", .{value.value.boolean}),
         .VAL_NUMBER => try stdout.print("{d}", .{value.value.number}),
         .VAL_NIL => try stdout.print("nil", .{}),
-        .VAL_OBJ => try stdout.print("{}", .{value.value.obj}),
+        .VAL_OBJ => try printObject(value, stdout),
+    }
+}
+
+fn printObject(v: Value, stdout: anytype) !void {
+    switch (object.OBJ_TYPE(v)) {
+        .OBJ_STRING => try stdout.print("{s}", .{object.AS_CSTRING(v)}),
     }
 }
