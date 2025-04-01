@@ -96,7 +96,11 @@ pub fn valuesEqual(a: Value, b: Value) bool {
         .VAL_BOOL => return as_bool(a) == as_bool(b),
         .VAL_NIL => return true,
         .VAL_NUMBER => return as_number(a) == as_number(b),
-        else => return true,
+        .VAL_OBJ => {
+            const a_string = object.AS_STRING(a);
+            const b_string = object.AS_STRING(b);
+            return a_string.chars.len == b_string.chars.len and std.mem.eql(u8, a_string.chars, b_string.chars);
+        },
     }
 }
 
