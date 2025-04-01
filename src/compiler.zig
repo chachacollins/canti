@@ -3,6 +3,7 @@ const Scanner = @import("scanner.zig");
 const Chunk = @import("chunk.zig");
 const Value = @import("value.zig");
 const Debug = @import("debug.zig");
+const Obj = @import("object.zig");
 
 const stdout_file = std.io.getStdOut().writer();
 var bw = std.io.bufferedWriter(stdout_file);
@@ -22,13 +23,12 @@ const CompilerReturns = struct {
 };
 
 const Parser = struct {
-
-    //zls
     previous: Scanner.Token,
     current: Scanner.Token,
     had_error: bool,
     panic_mode: bool,
     scanner: Scanner,
+    allocator: std.mem.Allocator,
 };
 
 const Precedence = enum {
@@ -78,6 +78,7 @@ const rules = blk: {
     map.set(.TOKEN_GREATER_EQUAL, .{ .infix = binary, .precedence = .PREC_COMPARISON });
     map.set(.TOKEN_LESS_EQUAL, .{ .infix = binary, .precedence = .PREC_COMPARISON });
     map.set(.TOKEN_LESS, .{ .infix = binary, .precedence = .PREC_COMPARISON });
+    map.set(.TOKEN_STRING, .{ .prefix = string });
 
     break :blk map;
 };
@@ -155,6 +156,10 @@ fn number() !void {
     const value = std.fmt.parseFloat(f64, parser.previous.literal) catch unreachable;
     try emitConstant(Value.number_value(value));
 }
+fn string() !void {
+    const obj_str = Obj.allocateString(parser.previous.literal, parser.allocator);
+    try emitConstant(Value.obj_value(&obj_str.obj));
+}
 
 fn parsePrecedence(precedence: Precedence) !void {
     advance();
@@ -228,6 +233,7 @@ pub fn compile(source: []const u8, allocator: std.mem.Allocator) !CompilerReturn
     var comp_ret = CompilerReturns.init(allocator);
     compiling_chunk = comp_ret.chunk;
 
+    parser.allocator = allocator;
     parser.had_error = false;
     parser.panic_mode = false;
     parser.scanner = Scanner.init(source);
