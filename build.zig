@@ -30,11 +30,6 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    // Any other code to define dependencies would
-    // probably be here.
-
-    // These two lines you might want to copy
-    // (make sure to rename 'exe_check')
     const check = b.step("check", "Check if canti compiles");
     check.dependOn(&exe_check.step);
 
