@@ -3,6 +3,8 @@ const Chunk = @import("chunk.zig");
 const V = @import("value.zig");
 const Debug = @import("debug.zig");
 const Compiler = @import("compiler.zig");
+const Obj = @import("object.zig");
+const ObjString = Obj.ObjString;
 const Self = @This();
 
 const stdout_file = std.io.getStdOut().writer();
@@ -24,15 +26,19 @@ debug: bool,
 allocator: std.mem.Allocator,
 stack: [65000]V.Value,
 stack_top: usize,
+objects: ?*Obj,
 
-var vm: Self = undefined;
+pub var vm: Self = undefined;
 
 pub fn init(allocator: std.mem.Allocator, debug: bool) !void {
     vm.allocator = allocator;
     vm.debug = debug;
     vm.stack_top = 0;
+    vm.objects = null;
 }
-pub fn deinit() void {}
+pub fn deinit() void {
+    freeObjects();
+}
 
 pub fn interpret(source: []const u8) !InterpretResult {
     var comp_ret = try Compiler.compile(source, vm.allocator);
@@ -73,11 +79,14 @@ fn run() !InterpretResult {
                 stackPush(constant);
             },
             @intFromEnum(Chunk.Op_Code.OP_ADD) => {
-                if (!V.is_number(peek(1)) or !V.is_number(peek(0))) {
-                    runtimeError("Operands must be numbers", .{});
+                if (Obj.IS_STRING(peek(0)) and Obj.IS_STRING(peek(1))) {
+                    concatenate();
+                } else if (V.is_number(peek(0)) and V.is_number(peek(1))) {
+                    binaryOp('+');
+                } else {
+                    runtimeError("Operands must be numbers or strings", .{});
                     return InterpretResult.INTERPRET_RUNTIME_ERROR;
                 }
-                binaryOp('+');
             },
             @intFromEnum(Chunk.Op_Code.OP_SUBTRACT) => {
                 if (!V.is_number(peek(1)) or !V.is_number(peek(0))) {
@@ -198,6 +207,15 @@ fn binaryOp(op: u8) void {
     }
 }
 
+fn concatenate() void {
+    const b = Obj.AS_STRING(stackPop());
+    const a = Obj.AS_STRING(stackPop());
+    const buffer = std.fmt.allocPrint(vm.allocator, "{s}{s}", .{ a.chars, b.chars }) catch undefined;
+    const new_str = Obj.allocateString(buffer, vm.allocator);
+    vm.allocator.free(buffer);
+    stackPush(V.obj_value(&new_str.obj));
+}
+
 fn peek(distance: usize) V.Value {
     return vm.stack[vm.stack_top - distance - 1];
 }
@@ -206,6 +224,24 @@ fn runtimeError(comptime fmt: []const u8, args: anytype) void {
     std.debug.print(fmt ++ "\n", args);
     const line = vm.chunk.lines.items[vm.ip];
     std.debug.print("[line {d}] in script\n", .{line});
+}
+
+fn freeObjects() void {
+    var object = vm.objects;
+    while (object != null) {
+        const next = object.?.next;
+        freeObject(object.?);
+        object = next;
+    }
+}
+fn freeObject(object: *Obj) void {
+    switch (object.type) {
+        .OBJ_STRING => {
+            const string: *ObjString = @fieldParentPtr("obj", object);
+            vm.allocator.free(string.chars);
+            vm.allocator.destroy(string);
+        },
+    }
 }
 
 fn isFalsey(value: V.Value) bool {

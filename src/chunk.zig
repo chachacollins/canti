@@ -64,7 +64,13 @@ pub fn writeConstant(self: *Self, value: V.Value, line: usize) !void {
     }
 }
 pub fn deinit(self: *Self) void {
-    self.lines.deinit();
-    self.constants.deinit();
-    self.code.deinit();
+    if (self.code.items.len > 0) {
+        self.code.deinit();
+    }
+    if (self.lines.items.len > 0) {
+        self.lines.deinit();
+    }
+    if (self.constants.values.items.len > 0) {
+        self.constants.deinit();
+    }
 }
