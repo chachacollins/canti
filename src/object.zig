@@ -37,7 +37,7 @@ pub fn allocateString(chars: []const u8, allocator: std.mem.Allocator) *ObjStrin
     return string;
 }
 
-pub inline fn ALLOCATE_OBJ(comptime T: type, obj_type: ObjType, allocator: std.mem.Allocator) *T {
+pub inline fn ALLOCATE_OBJ(comptime T: type, comptime obj_type: ObjType, allocator: std.mem.Allocator) *T {
     comptime {
         if (!@hasField(T, "obj")) {
             @compileError(std.fmt.comptimePrint("Type {s} has no field obj", .{@typeName(T)}));

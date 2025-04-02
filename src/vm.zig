@@ -3,6 +3,7 @@ const Chunk = @import("chunk.zig");
 const V = @import("value.zig");
 const Debug = @import("debug.zig");
 const Compiler = @import("compiler.zig");
+const Obj = @import("object.zig");
 const Self = @This();
 
 const stdout_file = std.io.getStdOut().writer();
@@ -73,11 +74,14 @@ fn run() !InterpretResult {
                 stackPush(constant);
             },
             @intFromEnum(Chunk.Op_Code.OP_ADD) => {
-                if (!V.is_number(peek(1)) or !V.is_number(peek(0))) {
-                    runtimeError("Operands must be numbers", .{});
+                if (Obj.IS_STRING(peek(0)) and Obj.IS_STRING(peek(1))) {
+                    concatenate();
+                } else if (V.is_number(peek(0)) and V.is_number(peek(1))) {
+                    binaryOp('+');
+                } else {
+                    runtimeError("Operands must be numbers or strings", .{});
                     return InterpretResult.INTERPRET_RUNTIME_ERROR;
                 }
-                binaryOp('+');
             },
             @intFromEnum(Chunk.Op_Code.OP_SUBTRACT) => {
                 if (!V.is_number(peek(1)) or !V.is_number(peek(0))) {
@@ -196,6 +200,14 @@ fn binaryOp(op: u8) void {
         '>' => stackPush(V.bool_value(a > b)),
         else => {},
     }
+}
+
+fn concatenate() void {
+    const b = Obj.AS_STRING(stackPop());
+    const a = Obj.AS_STRING(stackPop());
+    const buffer = std.fmt.allocPrint(vm.allocator, "{s}{s}", .{ a.chars, b.chars }) catch undefined;
+    const new_str = Obj.allocateString(buffer, vm.allocator);
+    stackPush(V.obj_value(&new_str.obj));
 }
 
 fn peek(distance: usize) V.Value {
