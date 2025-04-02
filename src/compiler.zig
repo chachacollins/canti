@@ -140,7 +140,6 @@ fn endCompiler() !void {
     if (parser.had_error) {
         _ = try Debug.disassembleChunk(compiling_chunk, "chunk");
     }
-
     emitReturn();
 }
 
